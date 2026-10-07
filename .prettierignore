@@ -1,0 +1,11 @@
+node_modules/
+dist/
+cdk.out/
+coverage/
+.npm-cache/
+.venv/
+.tools/
+__pycache__/
+package-lock.json
+data/raw/
+data/processed/

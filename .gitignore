@@ -10,3 +10,11 @@ coverage/
 __pycache__/
 *.pyc
 .DS_Store
+.npm-cache/
+.tools/
+.ruff_cache/
+*.tsbuildinfo
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep

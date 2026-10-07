@@ -1,0 +1,2 @@
+# Optional local Python lint/format tooling. Runtime dependencies remain empty.
+ruff==0.14.0
