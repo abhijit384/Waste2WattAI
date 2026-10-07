@@ -1,9 +1,30 @@
-# API boundaries
+﻿# API
 
-## Current behavior
+## Defined routes
 
-`services/api/src/handler.ts` exports an async API Gateway HTTP API Lambda boundary.
-It returns status `501`, JSON content type, `cache-control: no-store`, and:
+Phase 2 defines these HTTP API routes, all protected by the same Cognito JWT
+authorizer and the required waste2watt-api/access scope. All integrate with the
+existing services/api/src/handler.ts. Nothing is deployed.
+
+| Method | Route                      | Future behavior                               |
+| ------ | -------------------------- | --------------------------------------------- |
+| POST   | /scans                     | Register an owned scan                        |
+| POST   | /scans/{scanId}/upload-url | Create a presigned S3 image upload URL        |
+| GET    | /scans                     | List owned scans by creation time             |
+| GET    | /scans/{scanId}            | Read an owned scan and its analysis           |
+| GET    | /dashboard                 | Read owner-scoped daily metrics               |
+| GET    | /dashboard/hotspots        | Read owner-scoped hotspot aggregates          |
+| POST   | /simulate                  | Compare evidenced recovery options            |
+| POST   | /agent/chat                | Ask the future Strands/Bedrock decision agent |
+| GET    | /recovery-factors          | Read versioned approved factors               |
+
+These paths supersede Phase 1's proposed /v1 paths. Payloads, pagination, validation,
+idempotency keys, upload restrictions, and successful status codes remain deferred.
+
+## Current Lambda response
+
+Every authorized invocation returns HTTP 501, JSON content type, no-store cache
+control, and this explicit error. It does not read or write storage.
 
 ```json
 {
@@ -15,32 +36,29 @@ It returns status `501`, JSON content type, `cache-control: no-store`, and:
 }
 ```
 
-No routes are registered. There is no HTTP server, deployed gateway, authentication,
-input validation, persistence, upload signing, event publishing, or successful endpoint.
-The handler assumes API Gateway's event shape; it is not a public input validator.
+After a future deployment, API Gateway will reject missing/invalid JWTs and tokens
+without the required access scope before invoking Lambda. JWT issuer is the user
+pool URL; audience is the public web client's ID. Requiring the custom scope helps
+ensure that access tokens, rather than ID tokens, authorize API calls.
+The public client uses authorization-code flow; the future frontend must use PKCE
+and request openid, email, profile, and waste2watt-api/access. No client secret exists.
 
-## Proposed endpoints — not implemented
+The hosted login callback is frontendOrigin/auth/callback; logout returns to
+frontendOrigin/. CORS permits only the configured frontend origin, GET/POST/OPTIONS,
+and authorization/content-type headers. Browser preflight is handled by HTTP API CORS
+and is not an application route. Stage throttling is 10 requests/second with burst 20.
 
-| Method | Path                        | Intended purpose                              |
-| ------ | --------------------------- | --------------------------------------------- |
-| POST   | `/v1/uploads`               | Request an authorized S3 upload URL           |
-| POST   | `/v1/samples`               | Register uploaded sample metadata             |
-| GET    | `/v1/samples/{sampleId}`    | Read owned sample metadata                    |
-| POST   | `/v1/analyses`              | Request asynchronous analysis                 |
-| GET    | `/v1/analyses/{analysisId}` | Read owned job state/result                   |
-| POST   | `/v1/decisions`             | Request contextual explanation of an analysis |
+Runtime owner checks still need implementation: ownerId must be derived from Cognito
+sub and used in all repository keys. JWT validation alone does not implement row ownership.
 
-External payloads/status codes, pagination, upload limits, CORS, and idempotency are
-not finalized. Internal `ownerId` values must come from validated identity, not a
-client-supplied field. Cognito JWT authorization and runtime schemas must precede
-enabling any real route.
+## Internal pipeline input
 
-## Internal contracts
+The image pipeline consumes native S3 EventBridge Object Created events, with bucket
+name and object key in detail.bucket.name and detail.object.key. Keys must start with
+uploads/. Later presigned keys should use uploads/{ownerId}/{scanId}/{opaqueName}.
+Metadata-to-scan verification, object version checks, content validation, and duplicate
+event handling are deferred. The Phase 1 AnalysisRequestedEvent contract is not wired
+to a custom event bus in Phase 2.
 
-TypeScript definitions live in `packages/shared/src/index.ts`. Python analysis and
-decision wire types live in `packages/shared/python/waste2watt_shared` using the same
-camelCase JSON keys. These are compile-time types only.
-
-The proposed EventBridge detail is `AnalysisRequestedEvent` with `schemaVersion: "1"`
-and an `AnalysisRequest`. Event source/detail-type, retry policy, dead-letter handling,
-and Step Functions input mapping remain unspecified.
+See [data model](DATA_MODEL.md) for storage keys and [deployment](DEPLOYMENT.md) for
+configuration and outputs.

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 cdk.out/
+cdk.test.out/
+infra/.cdk/
 coverage/
 .npm-cache/
 .venv/

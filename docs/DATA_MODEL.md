@@ -1,43 +1,67 @@
-# Data model
+﻿# Data model
 
-These are provisional shared interfaces. No DynamoDB table, S3 bucket, database
-migration, dataset, or persistence adapter exists.
+## Phase 2 storage definitions
 
-| Model                    | Fields / purpose                                                                             |
-| ------------------------ | -------------------------------------------------------------------------------------------- |
-| `ObjectReference`        | S3 bucket/key and optional version ID; no signed URLs persisted                              |
-| `WasteSample`            | Sample ID, owner ID, creation time, object reference, optional measured mass and description |
-| `AnalysisRequest`        | Analysis ID, sample ID, owner ID                                                             |
-| `AnalysisJob`            | Request identity, state, creation/update times, optional result                              |
-| `AnalysisResult`         | Analysis/sample identity, state, estimates, limitations                                      |
-| `EnergyEstimate`         | Provisional pathway, nullable kWh/methodology, evidence, limitations                         |
-| `EvidenceReference`      | Traceable source ID, URI, version                                                            |
-| `DecisionRequest`        | Analysis identity, owner identity, question                                                  |
-| `DecisionResponse`       | Analysis identity, summary, evidence, limitations                                            |
-| `AnalysisRequestedEvent` | Versioned internal analysis request envelope                                                 |
-| `ApiError`               | Explicit unimplemented error code, message, correlation ID                                   |
+No tables or buckets are deployed or seeded. CDK defines retained, encrypted resources.
 
-## Semantics
+| Table           | Partition key         | Sort key                            | Access pattern                            |
+| --------------- | --------------------- | ----------------------------------- | ----------------------------------------- |
+| WasteScans      | ownerId (String)      | scanId (String)                     | Exact owner-scoped scan lookup/update     |
+| DailyMetrics    | ownerId (String)      | metricDate (String, UTC YYYY-MM-DD) | Owner-scoped dashboard range queries      |
+| RecoveryFactors | materialType (String) | factorVersion (String)              | Versioned factor lookup by waste material |
 
-IDs are opaque strings. Timestamps will use ISO 8601 UTC. Mass uses kilograms and
-energy uses kWh as unit labels only; there is no conversion formula or assumed yield.
-Absent measured mass means no measurement was provided. `energyKwh: null` means
-unknown; zero must never replace missing evidence. Nullable methodology means no
-method has been established. Evidence must identify source/version and limitations
-must describe relevant uncertainty before any estimate is shown.
+Physical table names are waste2watt-{stage}-WasteScans, waste2watt-{stage}-DailyMetrics,
+and waste2watt-{stage}-RecoveryFactors. The WasteScans OwnerCreatedAt GSI uses ownerId
+as partition key and createdAtScanId as sort key, with ALL projection. The future
+createdAtScanId format is ISO8601-UTC#scanId so time-ordered pagination has a stable
+tie-breaker. No Scan API is required for these access patterns.
 
-States are `queued`, `running`, `completed`, `failed`. They are labels only; transition
-rules, partial failures, and retries are deferred. Contract types do not enforce
-value ranges, scientific validity, state transitions, or ownership at runtime.
+All tables use PAY_PER_REQUEST, AWS-managed encryption, point-in-time recovery,
+deletion protection, and RETAIN for removal/replacement. TTL is deliberately omitted:
+metadata/approved factors must not silently expire with demo image uploads.
 
-Python mirrors the analysis/decision subset used by its service boundaries. Other
-metadata contracts currently live in TypeScript only. JSON schema generation and
-cross-language validation should be designed before actual integrations.
+## Intended item semantics (Phase 3)
 
-## Intended storage
+WasteScans will store source bucket/key/version, creation time, status, measured
+mass where available, evidenced results, and limitations. ownerId comes from
+validated Cognito sub. scanId is the API-facing identifier; existing shared
+WasteSample.sampleId and analysis contracts remain unchanged pending service design.
 
-S3 will store source objects and eventual model/data artifacts. DynamoDB will store
-owned metadata and analysis state. Candidate access patterns are sample-by-owner,
-job-by-owner, and owner-scoped lists. Partition/sort keys, indexes, retention, TTL,
-encryption choices, and result storage thresholds are deferred until those access
-patterns are confirmed. No table shape is claimed as deployed or final.
+DailyMetrics will store owner-scoped per-day measured/validated aggregates, including
+bounded hotspot/material breakdowns. Both dashboard endpoints query this table for
+the authenticated owner and requested date range. Large or high-cardinality hotspot
+data will require a separate design before implementation; no global cross-owner
+location index or fabricated aggregates are defined.
+
+RecoveryFactors will store source URI, source/version, units, effective date,
+methodology, applicability bounds, and approval state. factorVersion should be a
+sortable effectiveAt#version identifier. The service must select an approved,
+applicable version rather than assuming the latest row is valid. No seed rows,
+numeric factors, sustainability conversion constants, or defaults are included.
+
+## Image object storage
+
+The private versioned S3 bucket has bucket-owner enforced ownership, AES256
+server-side encryption, public-access blocking, and a TLS-only policy. Future keys
+follow uploads/{ownerId}/{scanId}/{opaqueName}. No presigned URL is persisted.
+CORS allows PUT from only frontendOrigin, content-type and x-amz-* headers, and ETag
+exposure. The upload-signing handler remains HTTP 501 and has no S3 grant.
+
+In dev/staging, uploads/ current versions expire after 30 days, noncurrent versions
+after 7 days, and incomplete multipart uploads after 1 day. In prod, current versions
+do not expire automatically; noncurrent versions expire after 30 days. The bucket
+is retained in every stage. Lifecycle deletion is asynchronous; deleting current
+versions in a versioned bucket may first create a delete marker. Metadata may therefore
+outlive images and Phase 3 must expose image availability separately.
+
+## Shared contracts and scientific semantics
+
+Existing TypeScript interfaces remain in packages/shared/src/index.ts; Python
+analysis/decision wire types remain in packages/shared/python/waste2watt_shared.
+They are type hints, not runtime validators or final persistence schemas.
+
+IDs are opaque; timestamps are ISO 8601 UTC. Mass is labeled in kilograms and energy
+in kWh; no conversion is implemented. An absent measurement means unknown. A null
+energy estimate means unknown, never zero. Evidence must identify traceable sources
+and versions; methods, applicability, uncertainty, and limitations must be established
+before estimates are produced. No model accuracy or environmental benefit is claimed.

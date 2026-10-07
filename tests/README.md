@@ -1,7 +1,13 @@
-# Scaffold checks
+﻿# Tests
 
-TypeScript tests use Node 24's built-in test runner and native type stripping; no
-additional test framework is needed. Python tests use standard-library unittest.
-Tests verify the API's explicit 501 response and that Python placeholders cannot
-fabricate successful analysis or decisions. These are boundary checks, not business
-logic or end-to-end cloud tests. Python tests configure local source import paths.
+Root npm test runs one Node API boundary test, two Python unittest boundary tests,
+and infrastructure assertions from infra/tests/infrastructure.test.ts.
+
+Node 24 uses its native test runner/type stripping. Python has no runtime test
+dependencies. CDK assertions synthesize local templates and verify storage security,
+table keys, Cognito code flow/scopes, all nine JWT-protected routes, all six workflow
+stages, EventBridge wiring, DLQ, logs/alarms, constrained IAM, outputs, configuration,
+and explicit worker failure. Artifacts remain inside infra/cdk.test.out.
+
+Tests verify infrastructure definitions and placeholders. They do not deploy resources,
+make model calls, validate real cloud integrations, or fabricate business results.

@@ -1,30 +1,72 @@
-# Scaffold verification
+﻿# Verification
 
-Local verification on 2026-10-08 in `E:\Waste2WattAI`.
+Local Phase 2 verification on 2026-10-08 in E:\Waste2WattAI. Nothing was deployed.
 
 ## Toolchain
 
-- Node.js 24.16.0; npm 11.13.0; Python 3.14.6.
-- TypeScript 5.9.3; React 19.3.0; Vite 7.3.7; Tailwind CSS 4.3.3.
-- ESLint 10.12.0; typescript-eslint 8.71.1; Prettier 3.9.9; Ruff 0.14.0.
-- Exact JavaScript dependency resolutions are recorded in `package-lock.json`.
+Node.js 24.16.0; npm 11.13.0; Python 3.14.6; TypeScript 5.9.3.
+AWS CDK library 2.272.0; CDK CLI 2.1144.0; Constructs 10.8.1; esbuild 0.25.12.
+Exact npm resolutions are recorded in package-lock.json.
 
-## Checks
+## Results
 
-- `npm run check`: shared declarations, TS workspace/test typechecks, ESLint,
-  Prettier, Node/Python tests, and all four workspace builds.
-- One Node API boundary test and two Python placeholder tests.
-- `.\.venv\Scripts\python -m ruff check .` and Ruff formatting check.
-- Repository file inventory, package dependency inspection, and `git diff --check`.
+| Check                                       | Result                                                                     |
+| ------------------------------------------- | -------------------------------------------------------------------------- |
+| npm install --ignore-scripts                | Passed; required CDK/Constructs/esbuild dependencies installed locally     |
+| npm run build                               | Passed for shared, API, infra and web                                      |
+| npm run typecheck                           | Passed for workspaces, service tests and infrastructure tests              |
+| npm run lint                                | Passed, zero warnings                                                      |
+| npm run format:check                        | Passed                                                                     |
+| npm test                                    | Passed: 1 Node API test, 2 Python tests, 13 CDK/configuration/worker tests |
+| cdk synth --lookups false from infra        | Passed; all five stack templates emitted locally                           |
+| npm run synth --workspace @waste2watt/infra | Passed; helper invokes the same local synthesis command                    |
+| git diff --check                            | Passed                                                                     |
 
-The initial ESLint 9 install emitted an unsupported-version warning; ESLint and
-`@eslint/js` were upgraded to major 10, supported by the installed typescript-eslint.
-The final checks use that updated toolchain.
+Infrastructure tests cover private/encrypted storage, lifecycle/CORS, all three table
+keys/PITR/billing, Cognito code flow and scope, all nine JWT-authorized routes,
+state-machine stages/catches/failure guard, upload and terminal-failure EventBridge
+wiring, encrypted/TLS-protected DLQ, logs/alarms, IAM wildcard constraints, outputs,
+configuration validation, explicit placeholder failure, and production retention/MFA.
 
-The frontend build emits local HTML/CSS/JavaScript in `apps/web/dist`. Shared/API/infra
-TypeScript outputs are local ignored `dist` directories. `node_modules`, `.venv`,
-Ruff cache, and npm/pip download cache are inside the project and ignored by Git.
+## Cloud assembly inspection
 
-Validation covers scaffold compilation, formatting, and explicit unimplemented
-behavior. No browser interaction, AWS integration, scientific model, cloud resource,
-security implementation, or deployment is validated or claimed.
+CloudFormation definitions are in infra/cdk.out:
+
+| Stack                            | Defined resources |
+| -------------------------------- | ----------------- |
+| Waste2WattDataStack-dev          | 5                 |
+| Waste2WattAuthStack-dev          | 4                 |
+| Waste2WattApiStack-dev           | 26                |
+| Waste2WattPipelineStack-dev      | 13                |
+| Waste2WattObservabilityStack-dev | 6                 |
+| Total                            | 54                |
+
+These counts include policies, roles, invocation permissions, integrations and
+routes. They are definitions, not live resources. Required outputs were verified
+by CDK assertions and template inspection.
+
+## Confirmed corrections
+
+Cognito OAuth scopes are synthesized as a resource-server reference joined with
+/access; the test now checks this intrinsic expression and the server identifier.
+The installed CLI no longer accepts --all for synth; it was removed because synth
+already emits all stack assemblies. Cross-stack reference strength is explicitly
+pinned to strong, retaining producer-protecting export/import behavior.
+
+The CLI's message about 80 unconfigured feature flags is informational. Library/CLI
+versions are pinned, and the deliberate cross-stack reference mode is configured;
+there were no final synthesis errors or construct warnings.
+
+## Limits and confinement
+
+Tests and asset bundling write inside infra/cdk.test.out. Synthesis writes inside
+infra/cdk.out, and the CDK helper keeps its cache inside infra/.cdk. npm/pip caches,
+node_modules, the Python environment and build outputs remain inside the repository.
+
+No bootstrap, deployment, CloudFormation write, console change, image upload,
+Bedrock call, SageMaker endpoint/job, Strands invocation, dataset seed, or recovery
+calculation was performed. No real AWS integration/security control is claimed as
+runtime-validated. Browser interaction, load tests and scientific validity are deferred.
+
+Phase 1's one Node/two Python tests still pass. Its earlier Ruff checks passed;
+Python runtime sources were unchanged in Phase 2. No AI/ML runtime dependency was installed.
