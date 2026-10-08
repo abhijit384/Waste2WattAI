@@ -5,11 +5,13 @@ import { createApi } from './api';
 import { Brand, ErrorBoundary, Layout } from './components';
 import {
   AuthPage,
+  Advisor,
   ConfigurationNotice,
   Dashboard,
-  FuturePage,
+  DigitalTwin,
   History,
   Landing,
+  ScenarioSimulator,
   ScanPage,
   Settings,
 } from './pages';
@@ -39,36 +41,9 @@ export function ApplicationRoutes({ config }: { config: FrontendConfig }) {
         <Route path="/dashboard" element={<Dashboard api={api} />} />
         <Route path="/scan" element={<ScanPage api={api} />} />
         <Route path="/history" element={<History api={api} />} />
-        <Route
-          path="/digital-twin"
-          element={
-            <FuturePage
-              eyebrow="DIGITAL WASTE TWIN"
-              title="See your waste system as a whole."
-              description="A future workspace for connected, measured waste streams."
-            />
-          }
-        />
-        <Route
-          path="/simulator"
-          element={
-            <FuturePage
-              eyebrow="SCENARIO SIMULATOR"
-              title="Explore the possibilities responsibly."
-              description="Evidence-based scenarios will arrive with verified recovery methods."
-            />
-          }
-        />
-        <Route
-          path="/advisor"
-          element={
-            <FuturePage
-              eyebrow="AI SUSTAINABILITY ADVISOR"
-              title="Better questions. Grounded decisions."
-              description="A future advisor built on your data, sources, and uncertainty."
-            />
-          }
-        />
+        <Route path="/digital-twin" element={<DigitalTwin api={api} />} />
+        <Route path="/simulator" element={<ScenarioSimulator />} />
+        <Route path="/advisor" element={<Advisor api={api} />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
       <Route

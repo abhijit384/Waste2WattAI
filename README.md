@@ -2,42 +2,27 @@
 
 **Turning Waste Intelligence into Energy Decisions.**
 
-Phase 4 prepares deployment and integration of the Phase 3 application: Cognito
-authentication, private image uploads, owner-scoped scan APIs and status polling.
-The current review targets only waste2watt-dev in us-east-1. STS verified
-the waste2watt-developer IAM user in the intended account 415150458314.
-CDKToolkit bootstrap completed with termination protection and version 32.
-Development reservations are removed for the concurrency quota of 10.
-All five dev application stacks reached CREATE_COMPLETE; the final diff has no changes.
-Live sign-in, owned scan/upload and expected unfinished-analysis failure checks passed.
-Local frontend configuration was generated; Phase 4 manual desktop acceptance passed.
-See docs/PHASE4_FIRST_DEPLOYMENT.md and docs/INTEGRATION_TESTING.md.
-Previous accounts are forbidden. Amplify Hosting is now deployed for the private
-GitHub `main` branch at
-https://main.d1kq8pn2nvv063.amplifyapp.com. The exact HTTPS origin is integrated
-with API Gateway, private S3 POST CORS and Cognito callback/logout allowlists; all
-five stacks have zero remaining CDK diff.
-Phase 4 browser acceptance found a Cognito subject-validation bug blocking some
-real users. The explicitly approved API/status fixes and branded verification-email
-template are deployed; 15 real authenticated browser checks passed, including a
-non-RFC Cognito subject, JPEG upload, foreign-user rejection and owned history.
-See [limited update results](docs/PHASE4_LIMITED_UPDATE.md).
-Hosted dashboard/history and PNG/JPEG/WebP uploads now pass; physical phone capture
-and hosted signup/email-confirmation acceptance remain pending.
-See [final acceptance results](docs/PHASE4_FINAL_ACCEPTANCE.md).
-See [hosting readiness and manual test results](docs/PHASE4_HOSTING_READINESS.md).
-See [final deployment and Stage 2 results](docs/PHASE4_FINAL_DEPLOYMENT.md).
-AI analysis intentionally fails
-until implemented; no classifications, recovery factors, or sustainability
-estimates are fabricated.
+Waste2Watt AI is a private, AWS-hosted waste capture and evidence workflow. The live
+frontend is [Amplify hosted](https://main.d1kq8pn2nvv063.amplifyapp.com); the existing
+development backend uses Cognito, private S3, API Gateway, Lambda, DynamoDB, EventBridge,
+Step Functions, SQS and CloudWatch. Phase 4 authentication, owner-scoped history,
+constrained uploads and Android acceptance were completed and documented.
+
+The Phase 5 analysis workflow is deployed with `AI_INFERENCE_ENABLED=false`. Bedrock
+Nova Lite access remains externally blocked (`NOT_AUTHORIZED` / `Operation not allowed`),
+so the site deliberately reports analysis unavailable and does not invent results.
+The current Dashboard and Digital Twin summarize authenticated records; the scenario
+calculator is a user-entered cited simulation, and the advisor uses deterministic
+read-only prompts. See the [final completion tracker](docs/FINAL_COMPLETION_TRACKER.md)
+for verified milestones, model evaluation, cost limits and remaining blockers.
 
 | Path              | Responsibility                                                              |
 | ----------------- | --------------------------------------------------------------------------- |
 | apps/web          | React/Vite/TypeScript/Tailwind application and Amplify Cognito UI           |
 | services/api      | Node TypeScript scan API, SDK v3 persistence/upload adapters, status worker |
-| services/analysis | Deferred Python analysis boundary                                           |
-| services/agent    | Deferred Python Strands/Bedrock advisor boundary                            |
-| ml                | Deferred SageMaker AI workflows                                             |
+| services/analysis | Validated Python analysis boundary; live model inference remains disabled   |
+| services/agent    | Read-only owner-bound Strands-compatible tool modules; no model invocation  |
+| ml                | Local licensed dataset pipeline and CPU baseline training/evaluation        |
 | infra             | Five CDK v2 stacks and infrastructure assertions                            |
 | packages/shared   | Zod scan contracts and legacy AI contracts                                  |
 | data              | Data policy; no seeded factors                                              |

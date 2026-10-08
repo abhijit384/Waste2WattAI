@@ -889,41 +889,6 @@ progress {
 .processing-panel .button {
   margin-left: 15px;
 }
-.future-shell {
-  position: relative;
-  min-height: 420px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-}
-.future-grid {
-  position: absolute;
-  inset: 28px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  opacity: 0.35;
-}
-.future-grid div {
-  border: 1px solid #3d6249;
-  border-radius: 12px;
-  background: linear-gradient(140deg, #1f402c44, transparent);
-}
-.future-copy {
-  position: relative;
-  max-width: 500px;
-  text-align: center;
-  padding: 40px;
-  background: radial-gradient(ellipse, #101c14 40%, transparent 80%);
-}
-.future-copy h2 {
-  font-size: 28px;
-  margin: 25px 0 15px;
-}
-.future-copy p {
-  font-size: 13px;
-  color: var(--muted);
-}
 .settings-panel {
   max-width: 780px;
 }
@@ -932,6 +897,111 @@ progress {
 }
 .settings-panel > p {
   font-size: 12px;
+}
+.analytics-panel,
+.scenario-result,
+.advisor-panel {
+  margin-top: 22px;
+}
+.twin-breakdowns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+.twin-breakdowns .analytics-panel {
+  min-width: 0;
+}
+.twin-breakdowns li span {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.twin-breakdowns progress {
+  width: min(170px, 100%);
+}
+.analytics-panel h2,
+.scenario-result h2,
+.advisor-panel h2 {
+  font-size: 18px;
+}
+.trend-heading {
+  align-items: end;
+}
+.trend-heading .muted {
+  margin: 7px 0 0;
+  font-size: 11px;
+}
+.trend-heading label {
+  display: grid;
+  gap: 6px;
+  color: #c7d8cc;
+  font-size: 11px;
+}
+.trend-heading select {
+  min-height: 40px;
+  border: 1px solid #3b5041;
+  border-radius: 7px;
+  background: #0d140f;
+  color: #e8f4ed;
+  padding: 8px 12px;
+}
+.analytics-panel ul,
+.analytics-panel ol,
+.advisor-panel ul,
+.scenario-result ul {
+  padding-left: 22px;
+}
+.analytics-panel li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--border);
+  padding: 14px 0;
+  font-size: 12px;
+}
+.analytics-panel li span,
+.analytics-panel time {
+  color: var(--muted);
+}
+.simulator-form {
+  display: grid;
+  gap: 18px;
+  max-width: 800px;
+}
+.simulator-form label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: #c7d8cc;
+}
+.simulator-form input,
+.simulator-form select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #3b5041;
+  border-radius: 7px;
+  background: #0d140f;
+  color: #e8f4ed;
+  padding: 10px 12px;
+}
+.simulator-range {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.scenario-result a {
+  color: var(--green);
+  overflow-wrap: anywhere;
+}
+.scenario-result li,
+.advisor-panel li {
+  color: #c7d8cc;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 8px 0;
+}
+.advisor-panel > p:last-child {
+  margin-top: 24px;
 }
 .auth-page {
   min-height: 100vh;
@@ -1303,6 +1373,19 @@ progress {
   .settings-panel dd {
     margin-bottom: 10px;
   }
+  .analytics-panel li {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .twin-breakdowns {
+    grid-template-columns: 1fr;
+  }
+  .twin-breakdowns li span {
+    justify-items: start;
+  }
+  .simulator-range {
+    grid-template-columns: 1fr;
+  }
   .upload-buttons .button {
     padding: 12px 15px;
   }
@@ -1311,12 +1394,6 @@ progress {
   }
   .context-panel input {
     font-size: 16px;
-  }
-  .future-copy {
-    padding: 24px;
-  }
-  .future-copy h2 {
-    font-size: 24px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -27,6 +27,10 @@ Two bounded controlled disabled-inference uploads were submitted through the exi
 
 No NAT Gateway, EC2, RDS, EKS, SageMaker job/endpoint, provisioned Bedrock throughput, historical backfill, load testing, marketplace subscription, or successful paid Bedrock inference was created or used. No SQS messages were purged, deleted, redriven, or replayed. The bounded text-only request was rejected with `Operation not allowed`; do not repeat invocation attempts as an authorization probe.
 
+## Phase 6–8 local continuation
+
+The 989-image CC BY 4.0 source dataset was downloaded to E: and locally cleaned, split, trained and evaluated using Pillow and a small CPU k-NN baseline. It did not use AWS compute, SageMaker, Bedrock or S3. Digital Twin analytics, simulator, agent tools, docs, checks and builds in this continuation were local; no AWS resources or settings changed and no AWS charge was incurred by those operations. Local disk storage is approximately 1.7 GB raw plus about 100 MB of ignored cleaned images/model/evaluation artifacts.
+
 ## Cost checkpoints before later work
 
 Before any new paid operation, check gross account usage against the cumulative `$20` ceiling, estimate duration and service charges, set bounded invocation/job limits, verify quotas and confirm cleanup behavior. Stop before any operation with unbounded or materially uncertain cost. Temporary ML compute must have a bounded shutdown plan and be removed after authorized testing. Budget alerts do not stop charges. Recheck public model/service pricing immediately before live model tests; rates and account eligibility can change.

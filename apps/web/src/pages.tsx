@@ -7,7 +7,16 @@ import type { ScanApi } from './api';
 import { uploadImage } from './api';
 import { validateImage } from './file-validation';
 import { AnalysisResult } from './AnalysisResult';
-import { createScanRequestSchema, type WasteScan, type ScanStatus } from '@waste2watt/shared';
+import {
+  createScanRequestSchema,
+  deriveOwnerAnalytics,
+  groupActivityByPeriod,
+  simulateEnergy,
+  type SimulationInput,
+  type ActivityGranularity,
+  type WasteScan,
+  type ScanStatus,
+} from '@waste2watt/shared';
 const CognitoForm = lazy(() => import('./AuthenticatorPanel'));
 
 export function PageHeading({
@@ -151,7 +160,7 @@ export function Landing() {
             [
               '03',
               'Plan what comes next',
-              'Digital twins, recovery scenarios, and an AI advisor are the next layer. No unsupported savings claims.',
+              'Explore owner-scoped activity, cited what-if scenarios, and deterministic guidance—without unsupported savings claims.',
             ],
           ].map(([number, title, body]) => (
             <article key={number}>
@@ -282,6 +291,7 @@ function useScans(api: ScanApi) {
 }
 export function Dashboard({ api }: { api: ScanApi }) {
   const data = useScans(api);
+  const analytics = deriveOwnerAnalytics(data.scans);
   return (
     <>
       <PageHeading
@@ -296,17 +306,33 @@ export function Dashboard({ api }: { api: ScanApi }) {
       />
       <div className="metric-grid">
         {[
-          ['Waste Analyzed', 'Recorded with context'],
-          ['Landfill Diversion', 'Evidence-backed recovery'],
-          ['Potential Energy', 'From verified pathways'],
-          ['Estimated CO2e Benefit', 'Transparent methodology'],
-        ].map(([label, detail]) => (
+          ['Scans loaded', analytics.rowCount.toString(), 'Most recent API page'],
+          [
+            'Approximate mass',
+            `${analytics.approximateMassKg.toLocaleString()} kg`,
+            'User-entered; not measured',
+          ],
+          [
+            'Energy outcome',
+            analytics.evidenceEnergyKwh === null
+              ? 'Unavailable'
+              : `${analytics.evidenceEnergyKwh.toLocaleString()} kWh`,
+            analytics.evidenceEnergyBasis ?? 'Needs complete comparable analysis evidence',
+          ],
+          [
+            'CO₂e benefit',
+            analytics.evidenceCarbonBenefitKgCo2e === null
+              ? 'Unavailable'
+              : `${analytics.evidenceCarbonBenefitKgCo2e.toLocaleString()} kg CO₂e`,
+            analytics.evidenceCarbonBaseline ?? 'Needs complete comparable baseline evidence',
+          ],
+        ].map(([label, value, detail]) => (
           <article className="metric-card" key={label}>
             <p>
               {label}
               <span aria-hidden="true">↗</span>
             </p>
-            <h2>Available after analysis</h2>
+            <h2>{value}</h2>
             <small>{detail}</small>
           </article>
         ))}
@@ -316,8 +342,9 @@ export function Dashboard({ api }: { api: ScanApi }) {
           <p className="eyebrow">A FOUNDATION FOR BETTER DECISIONS</p>
           <h2>Start with what you can see.</h2>
           <p>
-            Upload a waste photo and add its context. AI analysis is still in development; your scan
-            history is real.
+            These totals cover the most recent {analytics.rowCount} loaded scans. Mass is
+            user-entered; impact totals appear only when every loaded scan has comparable cited
+            evidence.
           </p>
         </div>
         <Link to="/scan" className="button secondary">
@@ -343,6 +370,354 @@ export function Dashboard({ api }: { api: ScanApi }) {
         ) : (
           <EmptyState />
         )}
+      </section>
+    </>
+  );
+}
+
+export function DigitalTwin({ api }: { api: ScanApi }) {
+  const data = useScans(api);
+  const analytics = deriveOwnerAnalytics(data.scans);
+  const [trendGranularity, setTrendGranularity] = useState<ActivityGranularity>('DAY');
+  const trendActivity = groupActivityByPeriod(data.scans, trendGranularity);
+  return (
+    <>
+      <PageHeading
+        eyebrow="DIGITAL WASTE TWIN"
+        title="Your recorded waste, in context."
+        description={`Descriptive view of ${analytics.rowCount} recently loaded owner-scoped scans. This is not a geospatial or facility model.`}
+      />
+      {data.error && <ErrorNotice message={data.error} retry={data.refresh} />}
+      {data.loading && !data.scans.length ? (
+        <Skeleton />
+      ) : (
+        <>
+          <div className="metric-grid">
+            <article className="metric-card">
+              <p>Approximate mass</p>
+              <h2>{analytics.approximateMassKg.toLocaleString()} kg</h2>
+              <small>Recorded user inputs</small>
+            </article>
+            <article className="metric-card">
+              <p>Completed analyses</p>
+              <h2>{analytics.completedScans}</h2>
+              <small>Only records with analysis results</small>
+            </article>
+            <article className="metric-card">
+              <p>Energy evidence</p>
+              <h2>
+                {analytics.evidenceEnergyKwh === null
+                  ? 'Unavailable'
+                  : `${analytics.evidenceEnergyKwh.toLocaleString()} kWh`}
+              </h2>
+              <small>
+                {analytics.evidenceEnergyBasis ?? 'No comparable evidence for all loaded scans'}
+              </small>
+            </article>
+            <article className="metric-card">
+              <p>Analysis unavailable</p>
+              <h2>{analytics.analysisUnavailable}</h2>
+              <small>Controlled disabled-analysis status</small>
+            </article>
+          </div>
+          <div className="twin-breakdowns">
+            <section className="panel analytics-panel">
+              <h2>Recorded material categories</h2>
+              <p className="muted">Only completed, validated analysis results are counted.</p>
+              {Object.keys(analytics.categoryCounts).length ? (
+                <ul>
+                  {Object.entries(analytics.categoryCounts).map(([category, count]) => (
+                    <li key={category}>
+                      <strong>{category.replaceAll('_', ' ')}</strong>
+                      <span>
+                        {count} scans
+                        <progress
+                          max={Math.max(1, analytics.completedScans)}
+                          value={count}
+                          aria-label={`${category.replaceAll('_', ' ')}: ${count} of ${analytics.completedScans} completed scans`}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No completed classifications are available.</p>
+              )}
+            </section>
+            <section className="panel analytics-panel">
+              <h2>Recorded recovery pathways</h2>
+              <p className="muted">Analysis suggestions are not verified facility acceptance.</p>
+              {Object.keys(analytics.recoveryPathwayCounts).length ? (
+                <ul>
+                  {Object.entries(analytics.recoveryPathwayCounts).map(([pathway, count]) => (
+                    <li key={pathway}>
+                      <strong>{pathway.replaceAll('_', ' ')}</strong>
+                      <span>{count} scans</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No analyzed recovery pathways are available.</p>
+              )}
+            </section>
+          </div>
+          <section className="panel analytics-panel">
+            <h2>Highest recorded source activity</h2>
+            <p className="muted">
+              A descriptive hotspot ranking by user-entered source label. It is not a geospatial
+              hotspot or verified facility location.
+            </p>
+            {analytics.siteActivity.length ? (
+              <ul>
+                {analytics.siteActivity.map((site) => (
+                  <li key={site.label}>
+                    <strong>{site.label}</strong>
+                    <span>
+                      {site.scans} scans · {site.approximateMassKg.toLocaleString()} kg approximate
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No source labels are recorded yet.</p>
+            )}
+          </section>
+          <section className="panel analytics-panel">
+            <div className="section-heading trend-heading">
+              <div>
+                <h2>Recorded activity trends</h2>
+                <p className="muted">UTC periods across the recently loaded scans.</p>
+              </div>
+              <label>
+                Trend interval
+                <select
+                  value={trendGranularity}
+                  onChange={(event) =>
+                    setTrendGranularity(event.target.value as ActivityGranularity)
+                  }
+                >
+                  <option value="DAY">Daily</option>
+                  <option value="WEEK">Weekly</option>
+                  <option value="MONTH">Monthly</option>
+                </select>
+              </label>
+            </div>
+            {trendActivity.length ? (
+              <ol>
+                {trendActivity.map((period) => (
+                  <li key={period.period}>
+                    <time dateTime={period.period}>{period.period}</time>
+                    <span>
+                      {period.scans} scans · {period.approximateMassKg.toLocaleString()} kg
+                      approximate
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>No scans are available.</p>
+            )}
+            {data.cursor && (
+              <button
+                className="button secondary"
+                disabled={data.loading}
+                onClick={() => void data.loadMore()}
+              >
+                Load more scans
+              </button>
+            )}
+          </section>
+        </>
+      )}
+    </>
+  );
+}
+
+export function ScenarioSimulator() {
+  const [result, setResult] = useState<ReturnType<typeof simulateEnergy> | null>(null);
+  const [error, setError] = useState('');
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const fields = new FormData(event.currentTarget);
+    try {
+      const input: SimulationInput = {
+        quantityKg: Number(fields.get('quantityKg')),
+        currentDisposalPathway: fields.get(
+          'currentDisposalPathway',
+        ) as SimulationInput['currentDisposalPathway'],
+        diversionPercent: Number(fields.get('diversionPercent')),
+        pathway: fields.get('pathway') as SimulationInput['pathway'],
+        lowerKwhPerKg: Number(fields.get('lower')),
+        typicalKwhPerKg: Number(fields.get('typical')),
+        upperKwhPerKg: Number(fields.get('upper')),
+        evidenceUrl: String(fields.get('evidenceUrl')),
+        evidenceVersion: String(fields.get('evidenceVersion')),
+        energyBasis: fields.get('energyBasis') as SimulationInput['energyBasis'],
+      };
+      setResult(simulateEnergy(input));
+      setError('');
+    } catch (cause) {
+      setResult(null);
+      setError(cause instanceof Error ? cause.message : 'Check the scenario inputs.');
+    }
+  };
+  return (
+    <>
+      <PageHeading
+        eyebrow="SCENARIO SIMULATOR"
+        title="Explore a cited what-if."
+        description="Enter a published factor range to calculate a transparent scenario. No factor is prefilled or presented as a Waste2Watt recommendation."
+      />
+      <form className="panel simulator-form" onSubmit={submit}>
+        <p className="eyebrow">USER-ENTERED ASSUMPTIONS</p>
+        <label>
+          Quantity (kg)
+          <input name="quantityKg" type="number" min="0.001" max="1000000" step="any" required />
+        </label>
+        <label>
+          Current disposal pathway (user-reported)
+          <select name="currentDisposalPathway">
+            <option value="LANDFILL">Landfill</option>
+            <option value="RECYCLING">Recycling</option>
+            <option value="COMPOSTING">Composting</option>
+            <option value="OTHER">Other or unknown</option>
+          </select>
+        </label>
+        <label>
+          Proposed diversion (%)
+          <input
+            name="diversionPercent"
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+            defaultValue="100"
+            required
+          />
+        </label>
+        <label>
+          Recovery pathway
+          <select name="pathway">
+            <option value="ANAEROBIC_DIGESTION">Anaerobic digestion</option>
+            <option value="COMBUSTION">Combustion</option>
+            <option value="GASIFICATION">Gasification</option>
+            <option value="PYROLYSIS">Pyrolysis</option>
+          </select>
+        </label>
+        <div className="simulator-range">
+          <label>
+            Lower kWh/kg
+            <input name="lower" type="number" min="0.000001" step="any" required />
+          </label>
+          <label>
+            Typical kWh/kg
+            <input name="typical" type="number" min="0.000001" step="any" required />
+          </label>
+          <label>
+            Upper kWh/kg
+            <input name="upper" type="number" min="0.000001" step="any" required />
+          </label>
+        </div>
+        <label>
+          Energy basis
+          <select name="energyBasis">
+            <option value="THEORETICAL_POTENTIAL">Theoretical potential</option>
+            <option value="GROSS_OUTPUT">Gross output</option>
+            <option value="USABLE_ELECTRICITY">Usable electricity</option>
+            <option value="USEFUL_HEAT">Useful heat</option>
+            <option value="NET_OUTPUT">Net output</option>
+          </select>
+        </label>
+        <label>
+          Public evidence URL
+          <input name="evidenceUrl" type="url" placeholder="https://…" required />
+        </label>
+        <label>
+          Evidence version, table or date
+          <input name="evidenceVersion" required />
+        </label>
+        <p className="field-help">
+          Use a source whose scope matches the selected pathway and basis. Calculations are not
+          independently validated.
+        </p>
+        <button className="button primary" type="submit">
+          Calculate scenario
+        </button>
+        {error && (
+          <p className="error-notice" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+      {result && (
+        <section className="panel scenario-result" aria-live="polite">
+          <p className="eyebrow">SIMULATED · NOT A MEASURED RESULT</p>
+          <h2>
+            {result.lowerKwh.toLocaleString()}–{result.upperKwh.toLocaleString()} kWh
+          </h2>
+          <p>
+            {result.divertedMassKg.toLocaleString()} kg scenario-diverted from{' '}
+            {result.quantityKg.toLocaleString()} kg recorded;{' '}
+            {result.remainingMassKg.toLocaleString()} kg remains on the user-reported{' '}
+            {result.currentDisposalPathway.toLowerCase()} route.
+          </p>
+          <p>
+            Typical input: {result.typicalKwh.toLocaleString()} kWh ·{' '}
+            {result.energyBasis.replaceAll('_', ' ')}
+          </p>
+          <p>
+            Evidence:{' '}
+            <a href={result.evidenceUrl} target="_blank" rel="noreferrer">
+              {result.evidenceVersion} ↗
+            </a>
+          </p>
+          <ul>
+            {result.limitations.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p>Carbon benefit: unavailable; no verified baseline was supplied.</p>
+          <p>
+            Facility acceptance: unverified. The diversion percentage and current route are
+            user-entered assumptions.
+          </p>
+        </section>
+      )}
+    </>
+  );
+}
+
+export function Advisor({ api }: { api: ScanApi }) {
+  const data = useScans(api);
+  const analytics = deriveOwnerAnalytics(data.scans);
+  const suggestions =
+    analytics.rowCount === 0
+      ? ['Create a scan record to begin a private activity log.']
+      : [
+          `Review ${analytics.analysisUnavailable} records with analysis unavailable before treating them as categorized waste.`,
+          'Check user-entered source labels and quantities against site records before planning collection.',
+          'Use the scenario simulator only with a cited factor that matches the feedstock and energy basis.',
+        ];
+  return (
+    <>
+      <PageHeading
+        eyebrow="SUSTAINABILITY WORKSPACE"
+        title="Practical prompts, grounded in records."
+        description="Deterministic, read-only guidance from your recently loaded scans. No language model is connected and no action is taken for you."
+      />
+      {data.error && <ErrorNotice message={data.error} retry={data.refresh} />}
+      <section className="panel advisor-panel" aria-live="polite">
+        <p className="eyebrow">READ-ONLY · {analytics.rowCount} RECENT RECORDS</p>
+        <h2>Questions to consider</h2>
+        <ul>
+          {suggestions.map((suggestion) => (
+            <li key={suggestion}>{suggestion}</li>
+          ))}
+        </ul>
+        <p className="muted">
+          This tool cannot verify materials, facility acceptance, energy yield, emissions savings or
+          local regulations. It does not send data to an external model.
+        </p>
       </section>
     </>
   );
@@ -779,42 +1154,6 @@ export function ScanPage({ api }: { api: ScanApi }) {
     </>
   );
 }
-export function FuturePage({
-  title,
-  eyebrow,
-  description,
-}: {
-  title: string;
-  eyebrow: string;
-  description: string;
-}) {
-  return (
-    <>
-      <PageHeading eyebrow={eyebrow} title={title} description={description} />
-      <section className="future-shell panel">
-        <div className="future-grid" aria-hidden="true">
-          <div />
-          <div />
-          <div />
-          <div />
-          <div />
-          <div />
-        </div>
-        <div className="future-copy">
-          <span className="status-badge">PLANNED / PHASE 5</span>
-          <h2>A thoughtful next layer.</h2>
-          <p>
-            This workspace is reserved for verified analysis and evidence-led decisions. No model is
-            connected and no estimates are simulated.
-          </p>
-          <Link className="button primary" to="/scan">
-            Build your scan library ↗
-          </Link>
-        </div>
-      </section>
-    </>
-  );
-}
 export function Settings() {
   const auth = useAuth();
   return (
@@ -834,7 +1173,7 @@ export function Settings() {
           <dt>Image access</dt>
           <dd>Private; no permanent public image URLs</dd>
           <dt>Analysis engine</dt>
-          <dd>Not connected — development foundation</dd>
+          <dd>Configured; live inference is disabled pending authorization</dd>
         </dl>
         <p className="muted">
           Account deletion, data export, and notification settings are planned. No controls pretend

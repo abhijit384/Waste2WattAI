@@ -129,7 +129,7 @@ export function Layout() {
             ['/history', 'Analysis history', '03'],
             ['/digital-twin', 'Digital waste twin', '04'],
             ['/simulator', 'Scenario simulator', '05'],
-            ['/advisor', 'AI advisor', '06'],
+            ['/advisor', 'Sustainability advisor', '06'],
             ['/settings', 'Settings', '07'],
           ].map(([path, label, number]) => (
             <NavLink key={path} to={path!}>

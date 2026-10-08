@@ -4,7 +4,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthContext, ProtectedRoute } from './auth';
 import { parseFrontendConfig } from './config';
 import { validateImage } from './file-validation';
-import { ConfigurationNotice, Dashboard, ScanPage, failureMessage, FuturePage } from './pages';
+import {
+  ConfigurationNotice,
+  Dashboard,
+  DigitalTwin,
+  ScanPage,
+  ScenarioSimulator,
+  failureMessage,
+} from './pages';
 import { ErrorBoundary } from './components';
 import { createApi, uploadImage, type ScanApi } from './api';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -170,11 +177,22 @@ describe('important application states', () => {
     wrap(<ConfigurationNotice config={parseFrontendConfig({})} />);
     expect(screen.getByRole('alert').textContent).toContain('no demo account');
   });
-  it('renders loading then honest dashboard empty/metric states', async () => {
+  it('renders loaded-scan and unavailable-impact dashboard states', async () => {
     wrap(<Dashboard api={stubApi()} />);
     expect(screen.getByRole('status').getAttribute('aria-label')).toBe('Loading analyses');
     expect(await screen.findByText('Your first insight starts with a photo.')).toBeTruthy();
-    expect(screen.getAllByText('Available after analysis')).toHaveLength(4);
+    expect(screen.getByText('0 kg')).toBeTruthy();
+    expect(screen.getAllByText('Unavailable')).toHaveLength(2);
+  });
+  it('renders empty Digital Twin states without inventing categories or impacts', async () => {
+    wrap(<DigitalTwin api={stubApi()} />);
+    expect(await screen.findByText('No completed classifications are available.')).toBeTruthy();
+    expect(screen.getByText('No source labels are recorded yet.')).toBeTruthy();
+    expect(screen.getByText('No analyzed recovery pathways are available.')).toBeTruthy();
+    expect(screen.getByText('No scans are available.')).toBeTruthy();
+    const interval = screen.getByRole('combobox', { name: 'Trend interval' }) as HTMLSelectElement;
+    fireEvent.change(interval, { target: { value: 'MONTH' } });
+    expect(interval.value).toBe('MONTH');
   });
   it('renders API errors and a retry control', async () => {
     const api = stubApi();
@@ -223,9 +241,26 @@ describe('important application states', () => {
     expect(failureMessage({ failureCode: 'ANALYSIS_NOT_IMPLEMENTED' })).toContain(
       'No AI result was generated',
     ));
-  it('renders future shells without simulated results', () => {
-    wrap(<FuturePage title="Future workspace" eyebrow="PLANNED" description="Reserved" />);
-    expect(screen.getByText(/No model is connected/)).toBeTruthy();
+  it('calculates cited scenario inputs and labels them as simulated', () => {
+    wrap(<ScenarioSimulator />);
+    fireEvent.change(screen.getByLabelText('Quantity (kg)'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Proposed diversion (%)'), {
+      target: { value: '50' },
+    });
+    fireEvent.change(screen.getByLabelText('Lower kWh/kg'), { target: { value: '0.1' } });
+    fireEvent.change(screen.getByLabelText('Typical kWh/kg'), { target: { value: '0.2' } });
+    fireEvent.change(screen.getByLabelText('Upper kWh/kg'), { target: { value: '0.3' } });
+    fireEvent.change(screen.getByLabelText('Public evidence URL'), {
+      target: { value: 'https://example.org/study' },
+    });
+    fireEvent.change(screen.getByLabelText('Evidence version, table or date'), {
+      target: { value: 'Table 4' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Calculate scenario' }));
+    expect(screen.getByText('SIMULATED · NOT A MEASURED RESULT')).toBeTruthy();
+    expect(screen.getByText(/0.2 kWh/)).toBeTruthy();
+    expect(screen.getByText(/1 kg scenario-diverted from 2 kg/)).toBeTruthy();
+    expect(screen.getByText(/Carbon benefit: unavailable/)).toBeTruthy();
   });
   it('renders a safe error boundary without stack details', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});

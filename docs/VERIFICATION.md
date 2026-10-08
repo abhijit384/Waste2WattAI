@@ -1,15 +1,14 @@
-﻿# Phase 3 verification
+# Project verification ledger
 
-Current Phase 4 verification: all five explicitly approved dev stacks reached
-CREATE_COMPLETE in 415150458314/us-east-1 using waste2watt-dev. The full local check
-passed all 59 tests/builds, live SDK integration passed the real constrained PNG
-upload and expected FAILED/ANALYSIS_NOT_IMPLEMENTED persistence, and the final
-read-only diff has no changes. Browser UI, second confirmed user and JPEG/WebP
-checks remain pending. See [current deployment and verification](PHASE4_FIRST_DEPLOYMENT.md)
-for security findings, costs, evidence and limits. Hosting and Phase 5 remain deferred.
+Updated 2026-10-08 for the local Phase 6–8 continuation. No AWS resource, account setting, or queue operation was performed in this continuation; Bedrock remains disabled. Phase 4 signup, email confirmation, authentication, mobile upload and history outcomes were user-confirmed in [final acceptance](PHASE4_FINAL_ACCEPTANCE.md).
 
-The SSO results below are historical previous-account evidence, not current
-deployment instructions. See [new account review](PHASE4_NEW_ACCOUNT_REVIEW.md).
+The final `npm run check` passed: 35 TypeScript, 33 Python, 18 CDK, and 24 frontend tests (110 total); typechecks, ESLint, Prettier, Ruff, workspace builds, and frontend production build passed. The in-sandbox Vitest attempt was blocked by Windows Vite `EPERM` resolving project realpaths before tests started; the full check was rerun outside the sandbox and passed. Only upstream Zod `@__PURE__` comment-position warnings remain in the production bundle.
+
+The local ML baseline trained/evaluated on 977 cleaned images from a rights-reviewed 989-file CC BY 4.0 release. Its held-out source-group test reached 45.38% accuracy and 28.15% macro-F1 across four supported classes; Glass had no test examples. It is not production-ready or connected to hosted scans. Digital Twin/dashboard analytics, cited-input scenario math, responsive pages, deterministic agent tool contracts, and the demo guide are local changes. New pages have automated component tests, but no new physical Android run or hosted browser acceptance of these un-deployed changes is claimed. Local CDK synthesis passed, and a fresh guarded diff (Phase 5 analysis included, inference disabled, exact Amplify origin) found zero differences across all five deployed stacks. No AWS resource change or model invocation occurred. See [model report](PHASE6_LOCAL_MODEL_REPORT.md) and [completion tracker](FINAL_COMPLETION_TRACKER.md).
+
+Historical Phase 3/4/SSO details follow; they are not current deployment instructions. See [new account review](PHASE4_NEW_ACCOUNT_REVIEW.md) for the original account-scope record.
+
+## Historical Phase 3 verification
 
 Historical Phase 3 verification and previous-account Phase 4 verification on 2026-10-08
 in E:\Waste2WattAI. No AWS changes occurred in either recorded run.
