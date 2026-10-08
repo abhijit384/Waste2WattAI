@@ -1,4 +1,4 @@
-import { Component, useState, type ReactNode } from 'react';
+import { Component, createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from './auth';
 import type { ScanStatus, WasteScan } from '@waste2watt/shared';
@@ -26,6 +26,61 @@ export function Brand() {
         Waste2Watt<span className="brand-ai"> AI</span>
       </span>
     </Link>
+  );
+}
+type Theme = 'dark' | 'light';
+const ThemeContext = createContext<{ theme: Theme; toggleTheme: () => void } | null>(null);
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState<Theme>(() =>
+    document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      window.localStorage.setItem('w2w-theme', theme);
+    } catch {
+      // Keep the in-memory choice when browser storage is unavailable.
+    }
+  }, [theme]);
+
+  return (
+    <ThemeContext.Provider
+      value={{
+        theme,
+        toggleTheme: () => setTheme((value) => (value === 'dark' ? 'light' : 'dark')),
+      }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function ThemeToggle() {
+  const context = useContext(ThemeContext);
+  if (!context) return null;
+  const nextTheme = context.theme === 'dark' ? 'light' : 'dark';
+  return (
+    <button
+      className="theme-toggle"
+      type="button"
+      aria-label={`Switch to ${nextTheme} mode`}
+      aria-pressed={context.theme === 'light'}
+      title={`Switch to ${nextTheme} mode`}
+      onClick={context.toggleTheme}
+    >
+      {context.theme === 'dark' ? (
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+          <path d="M20.2 15.2A8.5 8.5 0 0 1 8.8 3.8 8.7 8.7 0 1 0 20.2 15.2Z" />
+        </svg>
+      )}
+      <span>{nextTheme === 'light' ? 'Light' : 'Dark'}</span>
+    </button>
   );
 }
 export function ErrorNotice({ message, retry }: { message: string; retry?: () => void }) {
@@ -150,6 +205,7 @@ export function Layout() {
             WORKSPACE <span>/</span> Waste intelligence
           </span>
           <div className="account-controls">
+            <ThemeToggle />
             <span className="account-avatar" aria-label="Authenticated account">
               W
             </span>

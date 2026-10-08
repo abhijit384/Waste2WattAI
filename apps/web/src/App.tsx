@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './auth';
 import { createApi } from './api';
-import { Brand, ErrorBoundary, Layout } from './components';
+import { Brand, ErrorBoundary, Layout, ThemeProvider } from './components';
 import {
   AuthPage,
   Advisor,
@@ -62,14 +62,16 @@ export function ApplicationRoutes({ config }: { config: FrontendConfig }) {
 export function App({ config }: { config: FrontendConfig }) {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <a className="skip-link" href="#main-content">
-          Skip to content
-        </a>
-        <AuthProvider configured={config.configured}>
-          <ApplicationRoutes config={config} />
-        </AuthProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <a className="skip-link" href="#main-content">
+            Skip to content
+          </a>
+          <AuthProvider configured={config.configured}>
+            <ApplicationRoutes config={config} />
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

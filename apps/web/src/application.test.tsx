@@ -12,7 +12,7 @@ import {
   ScenarioSimulator,
   failureMessage,
 } from './pages';
-import { ErrorBoundary } from './components';
+import { ErrorBoundary, ThemeProvider, ThemeToggle } from './components';
 import { createApi, uploadImage, type ScanApi } from './api';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
@@ -27,6 +27,8 @@ vi.mock('./api', async (original) => ({
 
 afterEach(() => {
   cleanup();
+  window.localStorage.removeItem('w2w-theme');
+  delete document.documentElement.dataset.theme;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -48,6 +50,26 @@ function stubApi() {
     upload: vi.fn(),
   } as unknown as ScanApi;
 }
+describe('appearance theme', () => {
+  it('switches between accessible light and dark modes and remembers the choice', async () => {
+    document.documentElement.dataset.theme = 'dark';
+    render(
+      <ThemeProvider>
+        <ThemeToggle />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to light mode' }));
+    expect(await screen.findByRole('button', { name: 'Switch to dark mode' })).toBeTruthy();
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(window.localStorage.getItem('w2w-theme')).toBe('light');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to dark mode' }));
+    expect(await screen.findByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(window.localStorage.getItem('w2w-theme')).toBe('dark');
+  });
+});
 describe('frontend configuration', () => {
   it('accepts complete configuration', () =>
     expect(parseFrontendConfig(configValues).configured).toBe(true));

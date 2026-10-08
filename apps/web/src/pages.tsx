@@ -2,7 +2,15 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import type { FrontendConfig } from './config';
-import { Brand, EmptyState, ErrorNotice, ScanRows, Skeleton, StatusBadge } from './components';
+import {
+  Brand,
+  EmptyState,
+  ErrorNotice,
+  ScanRows,
+  Skeleton,
+  StatusBadge,
+  ThemeToggle,
+} from './components';
 import type { ScanApi } from './api';
 import { uploadImage } from './api';
 import { validateImage } from './file-validation';
@@ -69,6 +77,7 @@ export function Landing() {
         <Brand />
         <nav aria-label="Public navigation">
           <a href="#how-it-works">How it works</a>
+          <ThemeToggle />
           <Link to="/auth" className="button secondary">
             Enter workspace <span aria-hidden="true">↗</span>
           </Link>
@@ -201,7 +210,10 @@ export function AuthPage({ config }: { config: FrontendConfig }) {
     <div className="auth-page">
       <header>
         <Brand />
-        <Link to="/">Back to home</Link>
+        <div className="auth-header-actions">
+          <ThemeToggle />
+          <Link to="/">Back to home</Link>
+        </div>
       </header>
       <main id="main-content" className="auth-grid">
         <section className="auth-intro">
