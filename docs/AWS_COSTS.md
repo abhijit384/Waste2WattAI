@@ -29,7 +29,7 @@ No NAT Gateway, EC2, RDS, EKS, SageMaker job/endpoint, provisioned Bedrock throu
 
 ## Phase 6–8 local continuation
 
-The 989-image CC BY 4.0 source dataset was downloaded to E: and locally cleaned, split, trained and evaluated using Pillow and a small CPU k-NN baseline. It did not use AWS compute, SageMaker, Bedrock or S3. Digital Twin analytics, simulator, agent tools, docs, checks and builds in this continuation were local; no AWS resources or settings changed and no AWS charge was incurred by those operations. Local disk storage is approximately 1.7 GB raw plus about 100 MB of ignored cleaned images/model/evaluation artifacts.
+The 989-image CC BY 4.0 source dataset was downloaded to E: and locally cleaned, split, trained and evaluated using Pillow and a small CPU k-NN baseline. It did not use AWS compute, SageMaker, Bedrock or S3. Digital Twin analytics, simulator, agent tools, docs, checks and builds were local; no AWS infrastructure or account settings changed. After commit `bf795603` was pushed to the already-connected private GitHub repository, Amplify Hosting job 6 built and deployed the frontend successfully. This creates ordinary Amplify build usage and ongoing hosting/CDN storage and request charges; the exact incremental cost was not measured. No other AWS service was intentionally used by the local work. Local disk storage is approximately 1.7 GB raw plus about 100 MB of ignored cleaned images/model/evaluation artifacts.
 
 ## Cost checkpoints before later work
 
