@@ -1,0 +1,428 @@
+{
+  "classification": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "outcome": {
+        "type": "string",
+        "enum": [
+          "CLASSIFIED",
+          "NO_WASTE_DETECTED",
+          "LOW_CONFIDENCE",
+          "MULTIPLE_MATERIALS",
+          "INVALID_IMAGE",
+          "ANALYSIS_UNAVAILABLE"
+        ]
+      },
+      "primaryCategory": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "ORGANIC",
+              "PLASTIC",
+              "PAPER_CARDBOARD",
+              "METAL",
+              "GLASS",
+              "TEXTILE",
+              "E_WASTE",
+              "MIXED",
+              "OTHER"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "otherMaterials": {
+        "maxItems": 9,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "ORGANIC",
+            "PLASTIC",
+            "PAPER_CARDBOARD",
+            "METAL",
+            "GLASS",
+            "TEXTILE",
+            "E_WASTE",
+            "MIXED",
+            "OTHER"
+          ]
+        }
+      },
+      "description": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "confidenceBand": {
+        "type": "string",
+        "enum": ["HIGH", "MEDIUM", "LOW"]
+      },
+      "contamination": {
+        "type": "string",
+        "enum": ["VISIBLE", "NONE_VISIBLE", "UNKNOWN"]
+      },
+      "separationConcerns": {
+        "maxItems": 8,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "safetyConcerns": {
+        "maxItems": 8,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "humanReviewRecommended": {
+        "type": "boolean"
+      },
+      "materialProportions": {
+        "type": "null"
+      }
+    },
+    "required": [
+      "outcome",
+      "primaryCategory",
+      "otherMaterials",
+      "description",
+      "confidenceBand",
+      "contamination",
+      "separationConcerns",
+      "safetyConcerns",
+      "humanReviewRecommended",
+      "materialProportions"
+    ],
+    "additionalProperties": false
+  },
+  "analysis": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "schemaVersion": {
+        "type": "string",
+        "const": "1"
+      },
+      "classification": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "CLASSIFIED",
+              "NO_WASTE_DETECTED",
+              "LOW_CONFIDENCE",
+              "MULTIPLE_MATERIALS",
+              "INVALID_IMAGE",
+              "ANALYSIS_UNAVAILABLE"
+            ]
+          },
+          "primaryCategory": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ORGANIC",
+                  "PLASTIC",
+                  "PAPER_CARDBOARD",
+                  "METAL",
+                  "GLASS",
+                  "TEXTILE",
+                  "E_WASTE",
+                  "MIXED",
+                  "OTHER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "otherMaterials": {
+            "maxItems": 9,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ORGANIC",
+                "PLASTIC",
+                "PAPER_CARDBOARD",
+                "METAL",
+                "GLASS",
+                "TEXTILE",
+                "E_WASTE",
+                "MIXED",
+                "OTHER"
+              ]
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "confidenceBand": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW"]
+          },
+          "contamination": {
+            "type": "string",
+            "enum": ["VISIBLE", "NONE_VISIBLE", "UNKNOWN"]
+          },
+          "separationConcerns": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "safetyConcerns": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "humanReviewRecommended": {
+            "type": "boolean"
+          },
+          "materialProportions": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "outcome",
+          "primaryCategory",
+          "otherMaterials",
+          "description",
+          "confidenceBand",
+          "contamination",
+          "separationConcerns",
+          "safetyConcerns",
+          "humanReviewRecommended",
+          "materialProportions"
+        ],
+        "additionalProperties": false
+      },
+      "recovery": {
+        "type": "object",
+        "properties": {
+          "recommendedPathway": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "REUSE",
+                  "RECYCLING",
+                  "COMPOSTING",
+                  "ANAEROBIC_DIGESTION",
+                  "WASTE_TO_ENERGY",
+                  "SPECIALIZED_EWASTE_RECYCLING",
+                  "LANDFILL"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alternativePathways": {
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "REUSE",
+                "RECYCLING",
+                "COMPOSTING",
+                "ANAEROBIC_DIGESTION",
+                "WASTE_TO_ENERGY",
+                "SPECIALIZED_EWASTE_RECYCLING",
+                "LANDFILL"
+              ]
+            }
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "eligibilityConstraints": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "warnings": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "actionable": {
+            "type": "boolean"
+          },
+          "facilityStatus": {
+            "type": "string",
+            "enum": ["UNVERIFIED", "VERIFIED"]
+          }
+        },
+        "required": [
+          "recommendedPathway",
+          "alternativePathways",
+          "explanation",
+          "eligibilityConstraints",
+          "warnings",
+          "actionable",
+          "facilityStatus"
+        ],
+        "additionalProperties": false
+      },
+      "impact": {
+        "type": "object",
+        "properties": {
+          "energyKwh": {
+            "type": ["number", "null"]
+          },
+          "energyBasis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "THEORETICAL_POTENTIAL",
+                  "GROSS_OUTPUT",
+                  "USABLE_ELECTRICITY",
+                  "USEFUL_HEAT",
+                  "NET_OUTPUT"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carbonBenefitKgCo2e": {
+            "type": ["number", "null"]
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "sources": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": ["title", "url", "version"],
+              "additionalProperties": false
+            }
+          },
+          "assumptions": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        },
+        "required": [
+          "energyKwh",
+          "energyBasis",
+          "carbonBenefitKgCo2e",
+          "baseline",
+          "explanation",
+          "sources",
+          "assumptions"
+        ],
+        "additionalProperties": false
+      },
+      "modelId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 150
+      },
+      "modelVersion": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 150
+      },
+      "processedAt": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+      },
+      "quantityKg": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000
+      },
+      "factorCatalogVersion": {
+        "type": "string",
+        "const": "2026-10-08.1"
+      }
+    },
+    "required": [
+      "schemaVersion",
+      "classification",
+      "recovery",
+      "impact",
+      "modelId",
+      "modelVersion",
+      "processedAt",
+      "quantityKg",
+      "factorCatalogVersion"
+    ],
+    "additionalProperties": false
+  }
+}

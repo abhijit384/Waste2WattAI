@@ -14,10 +14,11 @@ export function createStatusHandler(deps: {
   repository: ScanRepository;
   bucket: string;
   head: (key: string, version?: string) => Promise<{ contentType?: string; sizeBytes?: number }>;
+  analysisEnabled?: boolean;
   now?: () => string;
 }) {
   return async (input: {
-    action: 'uploaded' | 'failed';
+    action: 'uploaded' | 'unavailable' | 'failed';
     event: unknown;
     failure?: { Error?: string };
   }) => {
@@ -32,7 +33,10 @@ export function createStatusHandler(deps: {
     const scan = await deps.repository.get(ownerId, scanId);
     if (!scan || scan.ownerId !== ownerId || scan.userId !== ownerId || scan.objectKey !== key)
       throw new Error('Image does not match scan');
-    if (scan.status === 'COMPLETED' || scan.status === 'FAILED') return { ignored: true };
+    if (input.action === 'unavailable' && deps.analysisEnabled === true)
+      throw new Error('Analysis is enabled');
+    if (scan.status === 'COMPLETED' || scan.status === 'FAILED')
+      return { ignored: true, analysisEnabled: deps.analysisEnabled === true };
     const now = (deps.now ?? (() => new Date().toISOString()))();
     if (input.action === 'failed') {
       await deps.repository.transition(
@@ -61,6 +65,10 @@ export function createStatusHandler(deps: {
       await deps.repository.transition(scan, ['UPLOADING'], 'UPLOADED', now);
     if (scan.status === 'UPLOADING' || scan.status === 'UPLOADED')
       await deps.repository.transition(scan, ['UPLOADED'], 'PROCESSING', now);
-    return { status: 'PROCESSING' };
+    if (input.action === 'unavailable') {
+      await deps.repository.transition(scan, ['PROCESSING'], 'FAILED', now, 'ANALYSIS_UNAVAILABLE');
+      return { status: 'FAILED', analysisEnabled: false };
+    }
+    return { status: 'PROCESSING', analysisEnabled: deps.analysisEnabled === true };
   };
 }

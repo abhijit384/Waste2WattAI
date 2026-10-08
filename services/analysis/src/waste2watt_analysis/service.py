@@ -1,4 +1,8 @@
-"""No model invocation or energy conversion is implemented."""
+"""Legacy Phase 1 service boundary, retained for compatibility tests.
+
+Phase 5 uses runtime.py and generated schemas.json aligned with shared TypeScript.
+This old request/result interface is not used for owned scans or AI inference.
+"""
 
 from typing import Protocol
 

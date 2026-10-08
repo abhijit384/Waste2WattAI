@@ -73,3 +73,9 @@ Daily aggregates, organization tenancy, result schemas, version deduplication
 and approved recovery calculations remain Phase 4 work. Phase 3 shared scan
 contracts use Zod runtime validation; legacy Python AI wire contracts are still
 deferred type hints.
+
+# Phase 5A prepared fields (local)
+
+WasteScans retains ownerId/scanId keys. Internal fields: analysisExecution claim, invocationReserved boolean, pendingClassification/pendingRecovery/pendingImpact during processing, and schema-validated analysis before completion. Intermediate fields are removed on successful final status transition and are excluded by the API's public schema. Source image version is pinned from its S3 event. Terminal scans cannot automatically re-enter processing. No table migration, user deletion or historical backfill occurs.
+
+DailyMetrics also stores AI reservation counters using ownerId = AI#GLOBAL or Cognito owner and metricDate = AI#YYYY-MM-DD (UTC). Each transaction increments both counters and sets the scan marker or fails atomically. These are attempts, not success or billable-token totals. Existing metric rows remain untouched. RecoveryFactors is not seeded; reviewed source evidence and the empty active coefficient catalog are versioned in the analysis package. See [factor review](PHASE5_SCIENTIFIC_FACTORS.md).

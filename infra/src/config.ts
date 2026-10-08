@@ -4,6 +4,8 @@ export interface InfrastructureConfig {
   region: string;
   frontendOrigin: string;
   frontendOrigins: string[];
+  phase5Analysis?: boolean;
+  phase5InferenceEnabled?: boolean;
 }
 
 export function resolveConfig(input: Record<string, unknown> = {}): InfrastructureConfig {
@@ -45,5 +47,19 @@ export function resolveConfig(input: Record<string, unknown> = {}): Infrastructu
   const origins = [...new Set(frontendOrigins.map(validateOrigin))];
   if (!origins.includes(primaryOrigin))
     throw new Error('frontendOrigins must include frontendOrigin');
-  return { stage, region, frontendOrigin: primaryOrigin, frontendOrigins: origins };
+  const phase5Analysis = input.phase5Analysis === true || input.phase5Analysis === 'true';
+  const phase5InferenceEnabled =
+    input.phase5InferenceEnabled === true || input.phase5InferenceEnabled === 'true';
+  if (phase5Analysis && region !== 'us-east-1')
+    throw new Error('Phase 5 model and IAM review is restricted to us-east-1');
+  if (phase5InferenceEnabled && !phase5Analysis)
+    throw new Error('Phase 5 inference cannot be enabled without the Phase 5 workflow');
+  return {
+    stage,
+    region,
+    frontendOrigin: primaryOrigin,
+    frontendOrigins: origins,
+    phase5Analysis,
+    phase5InferenceEnabled,
+  };
 }

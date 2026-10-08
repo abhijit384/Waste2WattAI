@@ -6,13 +6,18 @@ import { z } from 'zod';
 let application: ReturnType<typeof createStatusHandler> | undefined;
 export async function handler(
   input:
-    | { action: 'uploaded' | 'failed'; event: unknown; failure?: { Error?: string } }
+    | {
+        action: 'uploaded' | 'unavailable' | 'failed';
+        event: unknown;
+        failure?: { Error?: string };
+      }
     | { source: string; detail: unknown },
 ) {
   if (!application) {
     const clients = runtimeClients();
     application = createStatusHandler({
       ...clients,
+      analysisEnabled: process.env.AI_INFERENCE_ENABLED === 'true',
       head: async (key, version) => {
         const object = await clients.s3.send(
           new HeadObjectCommand({

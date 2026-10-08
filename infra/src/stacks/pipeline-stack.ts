@@ -5,6 +5,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
@@ -78,6 +79,11 @@ export class Waste2WattPipelineStack extends Stack {
       environment: {
         WASTE_SCANS_TABLE: props.data.wasteScans.tableName,
         IMAGE_BUCKET: props.data.imageBucket.bucketName,
+        ...(props.config.phase5Analysis
+          ? {
+              AI_INFERENCE_ENABLED: props.config.phase5InferenceEnabled ? 'true' : 'false',
+            }
+          : {}),
       },
       bundling: { format: OutputFormat.CJS, target: 'node22', sourceMap: true, bundleAwsSDK: true },
     });
@@ -126,43 +132,179 @@ export class Waste2WattPipelineStack extends Stack {
     });
     markFailed.addCatch(recordFailure, { resultPath: '$.statusFailure' });
     markFailed.next(recordFailure);
-    const stages = pipelineStages.map((name) => {
-      const task = new tasks.LambdaInvoke(this, name, {
-        lambdaFunction: name === 'ValidateImage' ? this.statusFunction : this.placeholderFunction,
+    let chain: sfn.Chain;
+    if (!props.config.phase5Analysis) {
+      const stages = pipelineStages.map((name) => {
+        const task = new tasks.LambdaInvoke(this, name, {
+          lambdaFunction: name === 'ValidateImage' ? this.statusFunction : this.placeholderFunction,
+          payload: sfn.TaskInput.fromObject({
+            stage: name,
+            action: 'uploaded',
+            event: sfn.JsonPath.objectAt('$'),
+          }),
+          payloadResponseOnly: true,
+          resultPath: `$.${name}`,
+          retryOnServiceExceptions: false,
+        });
+        task.addRetry({
+          errors: [
+            'Lambda.ServiceException',
+            'Lambda.AWSLambdaException',
+            'Lambda.SdkClientException',
+            'Lambda.TooManyRequestsException',
+          ],
+          interval: Duration.seconds(2),
+          maxAttempts: 2,
+          backoffRate: 2,
+        });
+        task.addCatch(markFailed, { resultPath: '$.failure' });
+        return task;
+      });
+      chain = sfn.Chain.start(stages[0]!);
+      for (const stage of stages.slice(1)) chain = chain.next(stage);
+      // A final guard prevents placeholder code ever reporting successful analysis.
+      const guard = new sfn.Pass(this, 'ImplementationRequired', {
+        result: sfn.Result.fromObject({
+          Error: 'Phase3NotImplemented',
+          Cause: 'Replace placeholders and this guard before enabling analysis.',
+        }),
+        resultPath: '$.failure',
+      });
+      chain = chain.next(guard.next(markFailed));
+    } else {
+      const analysisLogs = new logs.LogGroup(this, 'AnalysisLogs', {
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.RETAIN,
+      });
+      const analysisRole = new iam.Role(this, 'WasteIntelligenceRole', {
+        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      });
+      analysisLogs.grantWrite(analysisRole);
+      const analysis = new lambda.Function(this, 'WasteIntelligence', {
+        role: analysisRole,
+        runtime: lambda.Runtime.PYTHON_3_12,
+        architecture: lambda.Architecture.X86_64,
+        handler: 'waste2watt_analysis.runtime.handler',
+        code: lambda.Code.fromAsset(join(projectRoot, 'infra/.analysis-package')),
+        timeout: Duration.seconds(60),
+        memorySize: 512,
+        logGroup: analysisLogs,
+        environment: {
+          AI_INFERENCE_ENABLED: props.config.phase5InferenceEnabled ? 'true' : 'false',
+          AI_DAILY_LIMIT: '50',
+          AI_USER_DAILY_LIMIT: '5',
+          WASTE_SCANS_TABLE: props.data.wasteScans.tableName,
+          DAILY_METRICS_TABLE: props.data.dailyMetrics.tableName,
+          IMAGE_BUCKET: props.data.imageBucket.bucketName,
+        },
+      });
+      analysis.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['bedrock:InvokeModel'],
+          resources: ['arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0'],
+        }),
+      );
+      analysis.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['s3:GetObject', 's3:GetObjectVersion'],
+          resources: [props.data.imageBucket.arnForObjects('private/*')],
+        }),
+      );
+      analysis.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem'],
+          resources: [props.data.wasteScans.tableArn, props.data.dailyMetrics.tableArn],
+        }),
+      );
+      new cloudwatch.Alarm(this, 'AnalysisErrors', {
+        metric: analysis.metricErrors({ period: Duration.minutes(5) }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+        alarmDescription:
+          'Phase 5 analysis Lambda failures; inspect sanitized logs. No automatic replay.',
+      });
+      for (const field of ['inputTokens', 'outputTokens'])
+        new logs.MetricFilter(this, `Analysis${field}`, {
+          logGroup: analysisLogs,
+          filterPattern: logs.FilterPattern.stringValue('$.event', '=', 'BedrockUsage'),
+          metricNamespace: 'Waste2Watt/Analysis',
+          metricName: field,
+          metricValue: `$.${field}`,
+        });
+      const steps = [
+        'ValidateImage',
+        'AnalyzeWithBedrock',
+        'ValidateClassification',
+        'EvaluateRecoveryPathways',
+        'CalculateEnvironmentalImpact',
+        'PersistAnalysis',
+        'UpdateScanStatus',
+      ];
+      const jobs = steps.map((action) => {
+        const job = new tasks.LambdaInvoke(this, `Phase5${action}`, {
+          lambdaFunction: analysis,
+          payloadResponseOnly: true,
+          payload: sfn.TaskInput.fromObject({
+            action,
+            event: sfn.JsonPath.objectAt('$'),
+            executionArn: sfn.JsonPath.stringAt('$$.Execution.Id'),
+          }),
+          resultPath: '$.phase5',
+          retryOnServiceExceptions: false,
+        });
+        // Never retry inference automatically: a timeout may already have incurred a charge.
+        if (action !== 'AnalyzeWithBedrock')
+          job.addRetry({
+            errors: ['Lambda.ServiceException', 'Lambda.TooManyRequestsException'],
+            maxAttempts: 2,
+            interval: Duration.seconds(2),
+          });
+        job.addCatch(markFailed, { resultPath: '$.failure' });
+        return job;
+      });
+      let rest = sfn.Chain.start(jobs[1]!);
+      for (const job of jobs.slice(2)) rest = rest.next(job);
+      const skip = new sfn.Succeed(this, 'DuplicateAnalysisIgnored');
+      const unavailable = new tasks.LambdaInvoke(this, 'Phase5MarkAnalysisUnavailable', {
+        lambdaFunction: this.statusFunction,
+        payloadResponseOnly: true,
         payload: sfn.TaskInput.fromObject({
-          stage: name,
+          action: 'unavailable',
+          event: sfn.JsonPath.objectAt('$'),
+        }),
+        resultPath: '$.phase5',
+      });
+      unavailable.addCatch(markFailed, { resultPath: '$.failure' });
+      const controlledUnavailable = sfn.Chain.start(unavailable).next(
+        new sfn.Succeed(this, 'AnalysisUnavailableAsExpected'),
+      );
+      const route = new sfn.Choice(this, 'AnalysisClaimAcquired')
+        .when(
+          sfn.Condition.and(
+            sfn.Condition.isPresent('$.phase5.ignored'),
+            sfn.Condition.booleanEquals('$.phase5.ignored', true),
+          ),
+          skip,
+        )
+        .otherwise(rest);
+      const inferenceGate = new sfn.Choice(this, 'AnalysisInferenceEnabled').when(
+        sfn.Condition.booleanEquals('$.uploadValidation.analysisEnabled', false),
+        controlledUnavailable,
+      );
+      // Existing validation/authenticated scan status transition remains authoritative.
+      const entry = new tasks.LambdaInvoke(this, 'Phase5UploadValidation', {
+        lambdaFunction: this.statusFunction,
+        payloadResponseOnly: true,
+        payload: sfn.TaskInput.fromObject({
           action: 'uploaded',
           event: sfn.JsonPath.objectAt('$'),
         }),
-        payloadResponseOnly: true,
-        resultPath: `$.${name}`,
-        retryOnServiceExceptions: false,
+        resultPath: '$.uploadValidation',
       });
-      task.addRetry({
-        errors: [
-          'Lambda.ServiceException',
-          'Lambda.AWSLambdaException',
-          'Lambda.SdkClientException',
-          'Lambda.TooManyRequestsException',
-        ],
-        interval: Duration.seconds(2),
-        maxAttempts: 2,
-        backoffRate: 2,
-      });
-      task.addCatch(markFailed, { resultPath: '$.failure' });
-      return task;
-    });
-    let chain = sfn.Chain.start(stages[0]!);
-    for (const stage of stages.slice(1)) chain = chain.next(stage);
-    // A final guard prevents placeholder code ever reporting successful analysis.
-    const guard = new sfn.Pass(this, 'ImplementationRequired', {
-      result: sfn.Result.fromObject({
-        Error: 'Phase3NotImplemented',
-        Cause: 'Replace placeholders and this guard before enabling analysis.',
-      }),
-      resultPath: '$.failure',
-    });
-    chain = chain.next(guard.next(markFailed));
+      entry.addCatch(markFailed, { resultPath: '$.failure' });
+      chain = sfn.Chain.start(entry).next(inferenceGate.otherwise(jobs[0]!.next(route)));
+    }
     const executionLogs = new logs.LogGroup(this, 'StateMachineLogs', {
       retention: logs.RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.RETAIN,

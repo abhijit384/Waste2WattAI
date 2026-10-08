@@ -1,2 +1,3 @@
-# Optional local Python lint/format tooling. Runtime dependencies remain empty.
+# Local Python lint/format tooling; analysis runtime pins are in services/analysis/requirements.txt.
 ruff==0.14.0
+-r services/analysis/requirements.txt

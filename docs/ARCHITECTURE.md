@@ -104,3 +104,7 @@ are still unverified. Existing Lambda, HTTP API, state-machine and queue alarms
 are supplemented by status-worker errors. Notification destinations remain unset.
 Amplify Hosting is the Phase 4 hosting target; deployment/hosting await approval
 and quota resolution. Scientific factors and AI execution remain deferred.
+
+# Phase 5A prepared extension (not deployed)
+
+The local opt-in pipeline replaces placeholder analysis with a server-only Python Bedrock Converse service. An execution claim and atomic scan/global/user reservation precede one model attempt. Validated classification feeds pure recovery and scientific functions; complete results are written to owned scans before COMPLETED. Native structured output is unavailable for the selected Nova Lite model, so a data-only tool envelope and shared-schema validation fail closed. No UI inference, model-selected tools, historical replay or public image URLs are introduced. Inference defaults off. See [Phase 5 plan](PHASE5_DEPLOYMENT_PLAN.md).

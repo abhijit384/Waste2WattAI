@@ -11,7 +11,12 @@ import {
 } from '../services/api/src/scans.ts';
 import { DynamoScanRepository, signUpload } from '../services/api/src/aws.ts';
 import { createStatusHandler } from '../services/api/src/status.ts';
-import { cognitoSubjectSchema, wasteScanSchema, MAX_IMAGE_BYTES } from '@waste2watt/shared';
+import {
+  cognitoSubjectSchema,
+  wasteScanSchema,
+  MAX_IMAGE_BYTES,
+  analysisResultSchema,
+} from '@waste2watt/shared';
 const owner = '10000000-0000-4000-8000-000000000001',
   other = '10000000-0000-4000-8000-000000000002',
   scanId = '10000000-0000-4000-8000-000000000003',
@@ -94,6 +99,66 @@ function fixture() {
 }
 test('extracts Cognito identity from trusted access claims', () =>
   assert.equal(extractIdentity(event('GET /scans'), 'test-client').userId, owner));
+
+test('completed analysis is returned only to its authenticated owner and internal task fields stay private', async () => {
+  const f = fixture();
+  const analysis = analysisResultSchema.parse({
+    schemaVersion: '1',
+    classification: {
+      outcome: 'CLASSIFIED',
+      primaryCategory: 'GLASS',
+      otherMaterials: [],
+      description: 'Visible glass',
+      confidenceBand: 'HIGH',
+      contamination: 'UNKNOWN',
+      separationConcerns: [],
+      safetyConcerns: [],
+      humanReviewRecommended: false,
+      materialProportions: null,
+    },
+    recovery: {
+      recommendedPathway: 'RECYCLING',
+      alternativePathways: [],
+      explanation: 'Verify glass acceptance',
+      eligibilityConstraints: [],
+      warnings: [],
+      actionable: false,
+      facilityStatus: 'UNVERIFIED',
+    },
+    impact: {
+      energyKwh: null,
+      energyBasis: null,
+      carbonBenefitKgCo2e: null,
+      baseline: null,
+      explanation: 'No applicable factor',
+      sources: [],
+      assumptions: [],
+    },
+    modelId: 'amazon.nova-lite-v1:0',
+    modelVersion: 'amazon.nova-lite-v1:0',
+    processedAt: now,
+    quantityKg: 2,
+    factorCatalogVersion: '2026-10-08.1',
+  });
+  const saved = {
+    ...record(),
+    status: 'COMPLETED' as const,
+    analysis,
+    analysisExecution: 'internal-test',
+    pendingClassification: analysis.classification,
+  };
+  f.rows.set(`${owner}:${scanId}`, saved);
+  const response = await f.handler(event('GET /scans/{scanId}'));
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body!);
+  assert.deepEqual(body.analysis, analysis);
+  assert.equal(body.analysisExecution, undefined);
+  assert.equal(body.pendingClassification, undefined);
+  assert.equal((await f.handler(event('GET /scans/{scanId}', undefined, other))).statusCode, 404);
+  const unsigned = event('GET /scans/{scanId}');
+  delete (unsigned.requestContext as { authorizer?: unknown }).authorizer;
+  assert.equal((await f.handler(unsigned)).statusCode, 401);
+});
 
 test('Cognito subjects accept non-RFC variant bits while malformed subjects stay rejected', async () => {
   const cognitoOwner = '10000000-0000-7000-0000-000000000001';
@@ -445,7 +510,45 @@ test('status confirms metadata, persists processing then explicit unimplemented 
   });
   assert.equal(scan.status, 'FAILED');
   assert.equal(scan.failureCode, 'ANALYSIS_NOT_IMPLEMENTED');
-  assert.deepEqual(await handler({ action: 'uploaded', event: imageEvent() }), { ignored: true });
+  assert.deepEqual(await handler({ action: 'uploaded', event: imageEvent() }), {
+    ignored: true,
+    analysisEnabled: false,
+  });
+});
+
+test('intentional disabled analysis ends as a controlled status without throwing', async () => {
+  const f = fixture(),
+    scan: ScanRecord = {
+      ...record(),
+      status: 'UPLOADING',
+      objectKey,
+      contentType: 'image/png',
+      sizeBytes: 10,
+    };
+  f.rows.set(`${owner}:${scanId}`, scan);
+  const unavailable = createStatusHandler({
+    repository: f.repository,
+    bucket: 'test-only-bucket',
+    head: async () => ({ contentType: 'image/png', sizeBytes: 10 }),
+    analysisEnabled: false,
+  });
+  assert.deepEqual(await unavailable({ action: 'unavailable', event: imageEvent() }), {
+    status: 'FAILED',
+    analysisEnabled: false,
+  });
+  assert.equal(scan.status, 'FAILED');
+  assert.equal(scan.failureCode, 'ANALYSIS_UNAVAILABLE');
+  assert.deepEqual(await unavailable({ action: 'unavailable', event: imageEvent() }), {
+    ignored: true,
+    analysisEnabled: false,
+  });
+  const wronglyRouted = createStatusHandler({
+    repository: f.repository,
+    bucket: 'test-only-bucket',
+    head: async () => ({ contentType: 'image/png', sizeBytes: 10 }),
+    analysisEnabled: true,
+  });
+  await assert.rejects(wronglyRouted({ action: 'unavailable', event: imageEvent() }));
 });
 test('status rejects foreign objects and metadata mismatches', async () => {
   const f = fixture(),

@@ -3,6 +3,7 @@ dist/
 cdk.out/
 cdk.test.out/
 infra/.cdk/
+infra/.analysis-package/
 coverage/
 .npm-cache/
 .venv/

@@ -27,6 +27,52 @@ const api = Template.fromStack(stacks.api);
 const pipeline = Template.fromStack(stacks.pipeline);
 const observability = Template.fromStack(stacks.observability);
 
+test('Phase 5 is opt-in, disabled for inference and scopes the model grant without replacing data', () => {
+  assert.equal(resolveConfig().phase5Analysis, false);
+  assert.equal(resolveConfig().phase5InferenceEnabled, false);
+  assert.throws(() => resolveConfig({ phase5InferenceEnabled: true }));
+  const reviewApp = new App({ outdir: join(projectRoot, 'infra/cdk.test.out/phase5') });
+  const reviewed = createStacks(reviewApp, resolveConfig({ phase5Analysis: true }));
+  reviewApp.synth();
+  const proposed = Template.fromStack(reviewed.pipeline);
+  proposed.hasResourceProperties('AWS::Lambda::Function', {
+    Runtime: 'python3.12',
+    Architectures: ['x86_64'],
+    Timeout: 60,
+    Environment: {
+      Variables: Match.objectLike({
+        AI_INFERENCE_ENABLED: 'false',
+        AI_DAILY_LIMIT: '50',
+        AI_USER_DAILY_LIMIT: '5',
+      }),
+    },
+  });
+  proposed.hasResourceProperties('AWS::Lambda::Function', {
+    Runtime: 'nodejs22.x',
+    Environment: { Variables: Match.objectLike({ AI_INFERENCE_ENABLED: 'false' }) },
+  });
+  proposed.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: 'bedrock:InvokeModel',
+          Resource: 'arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0',
+          Effect: 'Allow',
+        }),
+      ]),
+    },
+  });
+  proposed.resourceCountIs('AWS::SQS::Queue', 1);
+  proposed.resourceCountIs('AWS::Logs::MetricFilter', 2);
+  proposed.resourceCountIs('AWS::CloudWatch::Alarm', 1);
+  assert.deepEqual(Template.fromStack(reviewed.data).toJSON().Resources, data.toJSON().Resources);
+  const definition = JSON.stringify(proposed.findResources('AWS::StepFunctions::StateMachine'));
+  assert.ok(definition.includes('AnalyzeWithBedrock'));
+  assert.ok(!definition.includes('ClassifyWaste'));
+  assert.ok(definition.includes('Phase5MarkAnalysisUnavailable'));
+  assert.ok(definition.includes('AnalysisUnavailableAsExpected'));
+});
+
 test('development fits low Lambda quotas without reserved or provisioned concurrency', () => {
   for (const template of [api, pipeline]) {
     for (const resource of Object.values(template.findResources('AWS::Lambda::Function'))) {
@@ -181,6 +227,33 @@ test('state machine retains all six tasks, catches failures, and cannot report s
   assert.equal(definition.States.MarkScanFailed.Next, 'RecordAnalysisFailure');
 });
 
+test('disabled inference routes to unavailable status before invoking analysis Lambda', () => {
+  const reviewApp = new App({ outdir: join(projectRoot, 'infra/cdk.test.out/disabled-inference') });
+  const reviewed = createStacks(reviewApp, resolveConfig({ phase5Analysis: true }));
+  reviewApp.synth();
+  const resource = Object.values(
+    Template.fromStack(reviewed.pipeline).findResources('AWS::StepFunctions::StateMachine'),
+  )[0]!;
+  const parts = resource.Properties.DefinitionString['Fn::Join'][1] as (string | object)[];
+  const definition = JSON.parse(
+    parts.map((part) => (typeof part === 'string' ? part : 'TOKEN')).join(''),
+  );
+  assert.equal(definition.StartAt, 'Phase5UploadValidation');
+  const entry = definition.States.Phase5UploadValidation;
+  assert.equal(entry.Next, 'AnalysisInferenceEnabled');
+  const gate = definition.States.AnalysisInferenceEnabled;
+  assert.equal(gate.Type, 'Choice');
+  assert.deepEqual(gate.Choices, [
+    {
+      Variable: '$.uploadValidation.analysisEnabled',
+      BooleanEquals: false,
+      Next: 'Phase5MarkAnalysisUnavailable',
+    },
+  ]);
+  assert.equal(gate.Default, 'Phase5ValidateImage');
+  assert.equal(definition.States.AnalysisUnavailableAsExpected.Type, 'Succeed');
+});
+
 test('EventBridge filters uploads from this bucket and targets Step Functions with DLQ', () => {
   pipeline.hasResourceProperties('AWS::Events::Rule', {
     EventPattern: {
@@ -327,6 +400,8 @@ test('configuration defaults are local and unsafe origins are rejected', () => {
   assert.deepEqual(resolveConfig(), {
     stage: 'dev',
     region: 'us-east-1',
+    phase5Analysis: false,
+    phase5InferenceEnabled: false,
     frontendOrigin: 'http://localhost:5173',
     frontendOrigins: ['http://localhost:5173'],
   });

@@ -1,0 +1,33 @@
+{
+  "version": "2026-10-08.1",
+  "activeFactors": [],
+  "evidenceReview": [
+    {
+      "sourceOrganization": "US EPA",
+      "publicationTitle": "WARM Version 16 Background and Management Practices",
+      "sourceUrl": "https://www.epa.gov/system/files/documents/2024-01/warm_management_practices_v16_dec.pdf",
+      "publicationDate": "2023-12",
+      "geographicApplicability": "United States",
+      "status": "NOT_APPLICABLE_WITHOUT_MATERIAL_AND_BASELINE_MAPPING",
+      "limitation": "Broad image categories are not WARM feedstocks; US grid, transport, landfill and operating assumptions are not Indian defaults."
+    },
+    {
+      "sourceOrganization": "MNRE, Government of India",
+      "publicationTitle": "Biogas FAQs",
+      "sourceUrl": "https://biogas.mnre.gov.in/faqs",
+      "publicationDate": null,
+      "geographicApplicability": "India",
+      "status": "ENGINEERING_CONTEXT_ONLY",
+      "limitation": "Electricity per cubic metre of biogas is not electricity per kilogram of waste. Verified methane yield, volatile solids and plant efficiency are missing. The page is undated."
+    },
+    {
+      "sourceOrganization": "CPCB, Government of India",
+      "publicationTitle": "Solid Waste Management Rules 2026",
+      "sourceUrl": "https://swm.cpcb.gov.in/images/solid-waste-management-rules-2026.pdf",
+      "publicationDate": "2026",
+      "geographicApplicability": "India",
+      "status": "ELIGIBILITY_GUIDANCE_ONLY",
+      "limitation": "A photo cannot measure calorific value or verify authorized treatment infrastructure. This is not a numeric energy or carbon factor."
+    }
+  ]
+}

@@ -100,3 +100,7 @@ JWTs, headers, labels and upload credentials are not logged.
 GET /dashboard, GET /dashboard/hotspots, POST /simulate, POST /agent/chat and
 GET /recovery-factors retain honest 501 boundaries. The UI dashboard derives
 recent scan metadata from GET /scans; it does not call an invented metrics API.
+
+# Phase 5A result contract (local)
+
+Existing owned `GET /scans` and `GET /scans/{scanId}` may include an optional validated `analysis` object on completed records: classification, recovery, impact, model/version, timestamp, user quantity and factor-catalog version. No new endpoint, browser-supplied owner, retry endpoint or Bedrock frontend call is added. Analysis remains optional for legacy scans. Failure codes additionally include INVALID_IMAGE, INVALID_MODEL_OUTPUT, ANALYSIS_UNAVAILABLE and AI_LIMIT_EXCEEDED. Null environmental estimates and unverified facility readiness are meaningful results. Authentication and cross-owner 404 behavior remain unchanged.

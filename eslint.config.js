@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/cdk.out/**',
       '**/cdk.test.out/**',
       'infra/.cdk/**',
+      'infra/.analysis-package/**',
       '.tools/**',
       '.browser-profile/**',
       '.deployment/**',
