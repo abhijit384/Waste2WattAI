@@ -9,8 +9,10 @@ unverified header as identity or accepts userId/ownerId from a request.
 The native Amplify SRP flow produces this Cognito scope, rather than the custom
 OAuth scope defined for future hosted login. See
 [AWS native authentication flow scope behavior](https://docs.aws.amazon.com/cognito/latest/developerguide/authentication-flows-public-server-side.html).
-All nine routes remain JWT protected. CORS admits only the configured frontend
-origin. Responses use cache-control: no-store.
+All nine routes remain JWT protected. CORS admits only configured exact frontend
+origins: localhost by default, plus the actual Amplify origin when available.
+Responses use cache-control: no-store. Live endpoint verification is pending the
+non-root credential gate; see INTEGRATION_TESTING.md.
 
 ## Implemented scan routes
 

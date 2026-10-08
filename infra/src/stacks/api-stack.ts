@@ -49,7 +49,8 @@ export class Waste2WattApiStack extends Stack {
       handler: 'handler',
       memorySize: 256,
       timeout: Duration.seconds(10),
-      reservedConcurrentExecutions: 10,
+      // Small development accounts cannot reserve concurrency; retain other stage caps.
+      ...(props.config.stage === 'dev' ? {} : { reservedConcurrentExecutions: 10 }),
       logGroup,
       environment: {
         STAGE: props.config.stage,
@@ -88,7 +89,7 @@ export class Waste2WattApiStack extends Stack {
       defaultAuthorizer: authorizer,
       defaultAuthorizationScopes: [apiScope],
       corsPreflight: {
-        allowOrigins: [props.config.frontendOrigin],
+        allowOrigins: props.config.frontendOrigins,
         allowMethods: [
           http.CorsHttpMethod.GET,
           http.CorsHttpMethod.POST,

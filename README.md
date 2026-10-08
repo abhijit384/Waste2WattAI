@@ -2,10 +2,18 @@
 
 **Turning Waste Intelligence into Energy Decisions.**
 
-Phase 3 implements the application foundation: Cognito authentication, private
-image uploads, owner-scoped scan APIs, a responsive dashboard, scan history, and
-processing-status polling. Infrastructure remains local CDK definitions: nothing
-has been deployed or created in an AWS account. AI analysis intentionally fails
+Phase 4 prepares deployment and integration of the Phase 3 application: Cognito
+authentication, private image uploads, owner-scoped scan APIs and status polling.
+The current review targets only waste2watt-dev in us-east-1. STS verified
+the waste2watt-developer IAM user in the intended account 415150458314.
+CDKToolkit bootstrap completed with termination protection and version 32.
+Development reservations are removed for the concurrency quota of 10.
+All five dev application stacks reached CREATE_COMPLETE; the final diff has no changes.
+Live sign-in, owned scan/upload and expected unfinished-analysis failure checks passed.
+Local frontend configuration was generated; browser acceptance checks remain.
+See docs/PHASE4_FIRST_DEPLOYMENT.md and docs/INTEGRATION_TESTING.md.
+Previous accounts are forbidden. Amplify Hosting awaits separate review and approval.
+AI analysis intentionally fails
 until implemented; no classifications, recovery factors, or sustainability
 estimates are fabricated.
 
@@ -53,9 +61,15 @@ npm run check runs all checks and builds. npm test includes Node, Python, CDK
 assertions and frontend Vitest tests. npm run format applies Prettier.
 Local caches, generated assets, browser profiles and cloud assemblies are ignored
 and remain inside this project. Synthesis disables AWS context lookups and does
-not deploy. No deploy script is provided.
+not deploy. The guarded scripts/aws-dev.ps1 fixes the new profile and region,
+requires the exact waste2watt-developer IAM user and rejects other identities. It supports only
+identity, bootstrap status and full template diff, with no deploy action.
+scripts/configure-frontend.mjs converts actual CDK outputs into ignored local config.
 
 Read [Phase 3 implementation and file inventory](docs/PHASE3_APPLICATION.md),
 [architecture](docs/ARCHITECTURE.md), [API](docs/API.md),
 [data model](docs/DATA_MODEL.md), [configuration and synthesis](docs/DEPLOYMENT.md),
-and [verification](docs/VERIFICATION.md).
+and [verification](docs/VERIFICATION.md). See the current
+[Phase 4 new account review](docs/PHASE4_NEW_ACCOUNT_REVIEW.md),
+[integration checklist](docs/INTEGRATION_TESTING.md), and
+[troubleshooting guide](docs/TROUBLESHOOTING.md) before live testing.

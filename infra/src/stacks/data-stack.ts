@@ -26,7 +26,7 @@ export class Waste2WattDataStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
       cors: [
         {
-          allowedOrigins: [config.frontendOrigin],
+          allowedOrigins: config.frontendOrigins,
           allowedMethods: [s3.HttpMethods.POST],
           allowedHeaders: ['content-type', 'x-amz-*'],
           exposedHeaders: ['ETag'],

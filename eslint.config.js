@@ -14,6 +14,7 @@ export default tseslint.config(
       'infra/.cdk/**',
       '.tools/**',
       '.browser-profile/**',
+      '.deployment/**',
     ],
   },
   js.configs.recommended,

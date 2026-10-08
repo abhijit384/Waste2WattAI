@@ -27,6 +27,15 @@ const api = Template.fromStack(stacks.api);
 const pipeline = Template.fromStack(stacks.pipeline);
 const observability = Template.fromStack(stacks.observability);
 
+test('development fits low Lambda quotas without reserved or provisioned concurrency', () => {
+  for (const template of [api, pipeline]) {
+    for (const resource of Object.values(template.findResources('AWS::Lambda::Function'))) {
+      assert.equal(resource.Properties.ReservedConcurrentExecutions, undefined);
+    }
+    assert.equal(Object.keys(template.findResources('AWS::Lambda::Alias')).length, 0);
+  }
+});
+
 test('private encrypted image bucket has exact-origin CORS, lifecycle and EventBridge', () => {
   data.hasResourceProperties('AWS::S3::Bucket', {
     PublicAccessBlockConfiguration: {
@@ -314,6 +323,7 @@ test('configuration defaults are local and unsafe origins are rejected', () => {
     stage: 'dev',
     region: 'us-east-1',
     frontendOrigin: 'http://localhost:5173',
+    frontendOrigins: ['http://localhost:5173'],
   });
   for (const origin of [
     '*',
@@ -331,6 +341,77 @@ test('configuration defaults are local and unsafe origins are rejected', () => {
     resolveConfig({ stage: 'prod', frontendOrigin: 'https://example.com' }).stage,
     'prod',
   );
+});
+
+test('multiple exact origins reach API, S3 and Cognito without wildcard CORS', () => {
+  const origins = ['http://localhost:5173', 'https://dev.example.com'];
+  const config = resolveConfig({ frontendOrigins: JSON.stringify(origins) });
+  const multipleApp = new App({ outdir: join(projectRoot, 'infra/cdk.test.out/multiple') });
+  const multiple = createStacks(multipleApp, config);
+  Template.fromStack(multiple.data).hasResourceProperties('AWS::S3::Bucket', {
+    CorsConfiguration: { CorsRules: [Match.objectLike({ AllowedOrigins: origins })] },
+  });
+  Template.fromStack(multiple.api).hasResourceProperties('AWS::ApiGatewayV2::Api', {
+    CorsConfiguration: Match.objectLike({ AllowOrigins: origins }),
+  });
+  Template.fromStack(multiple.auth).hasResourceProperties('AWS::Cognito::UserPoolClient', {
+    CallbackURLs: origins.map((origin) => `${origin}/auth/callback`),
+    LogoutURLs: origins.map((origin) => `${origin}/`),
+  });
+  for (const frontendOrigins of [
+    [],
+    ['*'],
+    ['https://example.com/path'],
+    [123],
+    ['https://example.com'],
+    Array(11).fill('http://localhost:5173'),
+    'not-json',
+  ]) {
+    assert.throws(() => resolveConfig({ frontendOrigins }));
+  }
+});
+
+test('deployment templates contain no expensive compute, AI resources or public grants', () => {
+  for (const template of [data, auth, api, pipeline, observability]) {
+    for (const resource of Object.values(template.toJSON().Resources)) {
+      const typed = resource as { Type: string };
+      assert.ok(!/^AWS::(EC2|RDS|EKS|SageMaker|Bedrock|ECS)::/.test(typed.Type), typed.Type);
+    }
+    for (const policy of Object.values(template.findResources('AWS::IAM::Policy'))) {
+      for (const statement of policy.Properties.PolicyDocument.Statement) {
+        const resources = Array.isArray(statement.Resource)
+          ? statement.Resource
+          : [statement.Resource];
+        if (resources.includes('*')) {
+          const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+          assert.ok(
+            actions.every((action: string) =>
+              [
+                'logs:CreateLogDelivery',
+                'logs:GetLogDelivery',
+                'logs:UpdateLogDelivery',
+                'logs:DeleteLogDelivery',
+                'logs:ListLogDeliveries',
+                'logs:PutResourcePolicy',
+                'logs:DescribeResourcePolicies',
+                'logs:DescribeLogGroups',
+              ].includes(action),
+            ),
+          );
+        }
+      }
+    }
+    for (const type of ['AWS::S3::BucketPolicy', 'AWS::SQS::QueuePolicy']) {
+      for (const policy of Object.values(template.findResources(type))) {
+        for (const statement of policy.Properties.PolicyDocument.Statement) {
+          if (statement.Effect === 'Allow') {
+            assert.notEqual(statement.Principal, '*');
+            assert.notEqual(statement.Principal?.AWS, '*');
+          }
+        }
+      }
+    }
+  }
 });
 
 test('pipeline Lambda never fabricates successful results', async () => {

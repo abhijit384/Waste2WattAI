@@ -8,6 +8,8 @@ coverage/
 .venv/
 .tools/
 .browser-profile/
+.deployment/
+.tmp/
 __pycache__/
 package-lock.json
 data/raw/

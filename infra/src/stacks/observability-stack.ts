@@ -35,7 +35,7 @@ export class Waste2WattObservabilityStack extends Stack {
     alarm(
       'PipelineLambdaErrors',
       props.pipeline.placeholderFunction.metricErrors({ period, statistic: 'Sum' }),
-      'Pipeline Lambda errors; Phase 2 stubs intentionally fail',
+      'Pipeline Lambda errors; analysis stubs intentionally fail',
     );
     alarm(
       'AnalysisExecutionFailures',

@@ -56,7 +56,7 @@ export class Waste2WattPipelineStack extends Stack {
       handler: 'handler',
       timeout: Duration.seconds(10),
       memorySize: 256,
-      reservedConcurrentExecutions: 5,
+      ...(props.config.stage === 'dev' ? {} : { reservedConcurrentExecutions: 5 }),
       logGroup: lambdaLogs,
       environment: { STAGE: props.config.stage },
       bundling: { format: OutputFormat.CJS, target: 'node22', sourceMap: true },
@@ -73,7 +73,7 @@ export class Waste2WattPipelineStack extends Stack {
       handler: 'handler',
       timeout: Duration.seconds(20),
       memorySize: 256,
-      reservedConcurrentExecutions: 5,
+      ...(props.config.stage === 'dev' ? {} : { reservedConcurrentExecutions: 5 }),
       logGroup: statusLogs,
       environment: {
         WASTE_SCANS_TABLE: props.data.wasteScans.tableName,

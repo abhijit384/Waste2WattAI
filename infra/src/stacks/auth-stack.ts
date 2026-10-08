@@ -61,8 +61,8 @@ export class Waste2WattAuthStack extends Stack {
             scopeDescription: 'API access',
           }),
         ],
-        callbackUrls: [`${props.config.frontendOrigin}/auth/callback`],
-        logoutUrls: [`${props.config.frontendOrigin}/`],
+        callbackUrls: props.config.frontendOrigins.map((origin) => `${origin}/auth/callback`),
+        logoutUrls: props.config.frontendOrigins.map((origin) => `${origin}/`),
       },
     });
     const domain = this.userPool.addDomain('LoginDomain', {

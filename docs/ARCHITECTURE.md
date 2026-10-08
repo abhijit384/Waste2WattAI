@@ -1,7 +1,11 @@
 ﻿# Architecture
 
 Waste2Watt AI remains AWS-native. Phase 3 adds a real application foundation to
-the five locally synthesized CDK stacks. No AWS resources have been created.
+the five CDK stacks. Phase 4 adds deployment guards and multiple exact frontend
+origins. CDKToolkit and all five dev application stacks are deployed. The current account review
+uses waste2watt-dev only; the intended developer IAM user is verified. Dev reservations
+are removed for the quota of 10. Live tests persist the expected unfinished-analysis failure.
+Hosting is deferred. See PHASE4_FIRST_DEPLOYMENT.md and PHASE4_BOOTSTRAP.md.
 
 ```mermaid
 flowchart LR
@@ -94,7 +98,9 @@ status role can use unrelated tables or AI services. Prefix wildcards cover
 server-generated object IDs; CloudWatch delivery APIs that do not support
 resource scoping remain documented in the Phase 2 report.
 
-CloudWatch logs retain 30 days and exclude execution data, JWTs and sensitive
-headers. Existing Lambda, HTTP API, state-machine, throttling and queue alarms
-are supplemented by status-worker errors. Notification destinations, deployment,
-frontend hosting, scientific factors and AI execution remain deferred.
+CloudWatch logs retain 30 days; state-machine log events exclude execution data,
+and application/access log formats exclude JWTs and sensitive headers. Live logs
+are still unverified. Existing Lambda, HTTP API, state-machine and queue alarms
+are supplemented by status-worker errors. Notification destinations remain unset.
+Amplify Hosting is the Phase 4 hosting target; deployment/hosting await approval
+and quota resolution. Scientific factors and AI execution remain deferred.

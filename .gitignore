@@ -16,6 +16,8 @@ __pycache__/
 .tools/
 .ruff_cache/
 .browser-profile/
+.deployment/
+.tmp/
 *.tsbuildinfo
 data/raw/*
 !data/raw/.gitkeep
