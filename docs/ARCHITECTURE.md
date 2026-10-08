@@ -1,72 +1,100 @@
 ﻿# Architecture
 
-## Phase 2 status
-
-AWS CDK v2 TypeScript now defines five stacks and can synthesize them locally.
-Nothing is deployed. The frontend remains the static Phase 1 page and will be hosted
-separately. API routes use the existing HTTP 501 placeholder; Python AI/agent
-boundaries remain unimplemented. No model calls or recovery calculations exist.
+Waste2Watt AI remains AWS-native. Phase 3 adds a real application foundation to
+the five locally synthesized CDK stacks. No AWS resources have been created.
 
 ```mermaid
 flowchart LR
-  Web[Separate React/Vite frontend] --> Auth[Cognito code flow with PKCE]
-  Web --> API[HTTP API: Cognito JWT + access scope]
-  API --> Stub[Existing Node Lambda: HTTP 501]
-  Web -. Phase 3 presigned PUT .-> Images[Private versioned S3 bucket]
-  Images --> Events[Default EventBridge bus: Object Created]
-  Events --> Flow[Standard Step Functions: six tasks]
-  Flow --> Worker[Node Lambda: throws Phase3NotImplemented]
-  Flow --> Queue[Encrypted SQS failure queue]
-  Events -. delivery failures .-> Queue
-  Flow -. terminal status events .-> Queue
-  Stub -. Phase 3 .-> Tables[DynamoDB: WasteScans / DailyMetrics / RecoveryFactors]
-  Worker -. Phase 3 .-> AI[Python / Bedrock / SageMaker / Strands]
-  API --> Logs[CloudWatch logs and alarms]
-  Worker --> Logs
-  Flow --> Logs
+  Web[React / Vite frontend] --> Cognito[Cognito with Amplify Auth]
+  Web -->|Access JWT| API[HTTP API JWT authorizer]
+  API --> Handler[Scan Lambda]
+  Handler --> Scans[DynamoDB WasteScans]
+  Handler -->|Signed POST policy| Web
+  Web -->|Private multipart upload| S3[Private S3]
+  S3 --> EB[EventBridge ObjectCreated]
+  EB --> SF[Step Functions]
+  SF --> Status[Scan status Lambda]
+  Status --> Scans
+  Status -->|Head metadata| S3
+  SF --> Stub[Deferred analysis stub]
+  Stub --> Failure[Persist FAILED and SQS diagnostics]
 ```
-
-Solid AWS connections are IaC definitions; dashed business integrations remain
-deferred. None represents a deployed connection.
 
 ## Stack boundaries
 
-| Stack                        | Responsibility                                                          | Dependencies     |
-| ---------------------------- | ----------------------------------------------------------------------- | ---------------- |
-| Waste2WattDataStack          | Image bucket and three DynamoDB tables                                  | None             |
-| Waste2WattAuthStack          | User pool, public web client, resource-server scope, login domain       | None             |
-| Waste2WattApiStack           | HTTP API, JWT authorizer, nine routes, bundled API Lambda               | Auth             |
-| Waste2WattPipelineStack      | Standard workflow, placeholder worker, failure queue, EventBridge rules | Data             |
-| Waste2WattObservabilityStack | Lambda, execution, delivery, and queue alarms                           | API and Pipeline |
+Data owns the private versioned bucket and three retained/PITR DynamoDB tables.
+Auth owns the email Cognito pool, public SRP-capable client, resource server and
+future hosted-login domain. API references Auth and Data, owning nine protected
+routes, scan Lambda and access logs. Pipeline references Data, owning the status
+worker, deliberate analysis stub, six intended task boundaries, EventBridge rules,
+state machine and failure queue. Observability references API/Pipeline and
+defines seven alarms. Strong export/import references avoid dependency cycles.
 
-Log groups live with their producers to prevent a circular dependency.
-CDK automatically generates CloudFormation exports/imports for cross-stack references.
-No account discovery, VPC lookup, frontend hosting, SageMaker endpoint, or Bedrock
-invocation is needed for synthesis.
+The existing OwnerCreatedAt index already supports user history, so no table
+redesign was required. Other tables are unchanged.
 
-## Image workflow
+## Authentication
 
-Native S3 EventBridge notifications feed the default bus. A rule accepts only Object
-Created events from this image bucket with keys under uploads/. It passes the S3
-event to the workflow; it does not accept arbitrary client-supplied analysis events.
+Amplify Auth and its managed Authenticator implement sign-up, email confirmation,
+sign-in, forgot/reset password and applicable MFA challenges. The provider
+restores sessions through SDK APIs and Auth Hub events; protected routes show a
+loading state and redirect anonymous users to /auth, preserving a safe destination.
+Sign-out uses the SDK. No password or token is manually persisted.
 
-ValidateImage → ClassifyWaste → VerifyWithBedrock → RecoveryEngine → PersistResult
-→ UpdateDailyMetrics are six Lambda Task states. One safe worker stands in for their
-future implementations and always throws. Each task catches failures, writes a
-diagnostic to SQS, and ends in Fail. A final guard also records failure if a placeholder
-ever unexpectedly returns. No success result, classification, or energy estimate is fabricated.
+Amplify owns CookieStorage with SameSite=Strict and Secure on HTTPS. Local HTTP
+loopback uses non-Secure cookies for development. These browser-managed cookies
+are JavaScript-readable, not HttpOnly: hosting must harden against XSS and use
+HTTPS, CSP and secure headers in a future hosting phase. This is not a server
+session/BFF design.
 
-EventBridge target-delivery failures also use the queue. A second rule forwards
-workflow FAILED, TIMED_OUT, and ABORTED status events, covering failures outside
-task-level catches. A caught failure can produce both a detailed message and a
-terminal-status event; Phase 3 consumers must deduplicate by execution ARN.
+Native SRP access tokens use aws.cognito.signin.user.admin; HTTP API requires
+that scope and the configured client audience. Lambda independently checks
+access token_use/client_id and derives identity from trusted Gateway claims.
+The existing custom OAuth resource scope is retained for a future hosted-login
+flow. The client also permits the reserved scope in a future code flow. See
+[AWS Cognito authentication flows](https://docs.aws.amazon.com/cognito/latest/developerguide/authentication-flows-public-server-side.html)
+and [Amplify token storage](https://docs.amplify.aws/react/build-a-backend/auth/concepts/tokens-and-credentials/).
 
-## Deferred boundaries
+## Upload and status flow
 
-Python analysis workers, Strands decision tools, Bedrock/SageMaker access, input
-schemas, ownership enforcement inside handlers, scan status transitions, replay,
-idempotency, evidence validation, and science-backed recovery calculations belong
-to Phase 3. Existing shared models are provisional contracts; API scan identifiers
-will be mapped to their sample identifiers during service implementation.
+The browser validates MIME/size, previews a local blob and collects approximate
+kg plus an optional source label. It creates an owned scan, obtains constrained
+credentials, and POSTs the image directly to S3 with progress reporting.
+No image passes through API Gateway. Keys are generated on the server.
+XHR requests can be aborted; polling is bounded, cancels on unmount and supports
+manual refresh after stopping.
 
-See [data model](DATA_MODEL.md) and [Phase 2 decisions](PHASE2_INFRASTRUCTURE.md).
+S3 events match this bucket and private/ prefix. ValidateImage now verifies
+ownership/key and version-specific metadata and persists UPLOADED/PROCESSING.
+It performs no image-content or malware inspection. ClassifyWaste still
+deliberately throws. The catch marks FAILED before diagnostic queue delivery.
+The remaining intended VerifyWithBedrock, RecoveryEngine, PersistResult and
+UpdateDailyMetrics tasks retain safe placeholders and cannot produce results.
+A final guard prevents false success. Terminal state-machine failure events
+also reach the failure queue and status updater.
+
+Conditional writes protect terminal statuses against duplicate events. They are
+not complete exactly-once processing; full image-version idempotency, recovery
+and reconciliation are deferred. No Bedrock, SageMaker or agent invocation occurs.
+
+## Frontend and operational boundaries
+
+Public landing and Cognito auth pages accompany seven protected pages:
+dashboard, scan, history, digital twin, simulator, advisor and settings.
+The UI uses graphite/emerald styling, semantic HTML, keyboard focus, text statuses,
+mobile layouts, reduced-motion handling, loading/error/empty states and an error
+boundary. Metrics honestly say Available after analysis. Future product pages
+are explicit shells. Missing real AWS configuration yields a developer screen,
+not mock accounts or data.
+
+API IAM permits only WasteScans Get/Put/Update, Query on its specific GSI and
+PutObject under private/*. The status role permits scan Get/Update and private
+GetObject/GetObjectVersion because HeadObject requires these actions. No API or
+status role can use unrelated tables or AI services. Prefix wildcards cover
+server-generated object IDs; CloudWatch delivery APIs that do not support
+resource scoping remain documented in the Phase 2 report.
+
+CloudWatch logs retain 30 days and exclude execution data, JWTs and sensitive
+headers. Existing Lambda, HTTP API, state-machine, throttling and queue alarms
+are supplemented by status-worker errors. Notification destinations, deployment,
+frontend hosting, scientific factors and AI execution remain deferred.

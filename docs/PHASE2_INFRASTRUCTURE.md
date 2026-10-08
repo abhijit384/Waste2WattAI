@@ -1,5 +1,9 @@
 # Phase 2 infrastructure
 
+Historical Phase 2 report. Phase 3 changes to native Cognito authorization,
+private POST uploads, real scan APIs and status persistence are documented in
+[Phase 3](PHASE3_APPLICATION.md). Resource and test counts below describe Phase 2.
+
 AWS CDK v2 TypeScript defines infrastructure locally. Nothing is deployed or
 bootstrapped. No AWS account change, upload, model call, endpoint, factor seed,
 conversion, or application business logic is implemented.

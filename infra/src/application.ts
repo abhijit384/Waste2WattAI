@@ -17,7 +17,11 @@ export function createStacks(app: App, config: InfrastructureConfig) {
     ...props,
     terminationProtection: config.stage === 'prod',
   });
-  const api = new Waste2WattApiStack(app, `Waste2WattApiStack-${config.stage}`, { ...props, auth });
+  const api = new Waste2WattApiStack(app, `Waste2WattApiStack-${config.stage}`, {
+    ...props,
+    auth,
+    data,
+  });
   const pipeline = new Waste2WattPipelineStack(app, `Waste2WattPipelineStack-${config.stage}`, {
     ...props,
     data,

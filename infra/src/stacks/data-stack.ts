@@ -27,7 +27,7 @@ export class Waste2WattDataStack extends Stack {
       cors: [
         {
           allowedOrigins: [config.frontendOrigin],
-          allowedMethods: [s3.HttpMethods.PUT],
+          allowedMethods: [s3.HttpMethods.POST],
           allowedHeaders: ['content-type', 'x-amz-*'],
           exposedHeaders: ['ETag'],
           maxAge: 300,
@@ -36,7 +36,7 @@ export class Waste2WattDataStack extends Stack {
       lifecycleRules: [
         {
           id: 'UploadRetention',
-          prefix: 'uploads/',
+          prefix: 'private/',
           enabled: true,
           abortIncompleteMultipartUploadAfter: Duration.days(1),
           noncurrentVersionExpiration: Duration.days(config.stage === 'prod' ? 30 : 7),

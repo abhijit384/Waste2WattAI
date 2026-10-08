@@ -44,11 +44,11 @@ test('private encrypted image bucket has exact-origin CORS, lifecycle and EventB
     NotificationConfiguration: { EventBridgeConfiguration: { EventBridgeEnabled: true } },
     CorsConfiguration: {
       CorsRules: [
-        Match.objectLike({ AllowedOrigins: ['http://localhost:5173'], AllowedMethods: ['PUT'] }),
+        Match.objectLike({ AllowedOrigins: ['http://localhost:5173'], AllowedMethods: ['POST'] }),
       ],
     },
     LifecycleConfiguration: {
-      Rules: [Match.objectLike({ Prefix: 'uploads/', ExpirationInDays: 30 })],
+      Rules: [Match.objectLike({ Prefix: 'private/', ExpirationInDays: 30 })],
     },
   });
   data.hasResource('AWS::S3::Bucket', { DeletionPolicy: 'Retain', UpdateReplacePolicy: 'Retain' });
@@ -133,7 +133,7 @@ test('HTTP API exists and all nine routes require the Cognito JWT access scope',
     api.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       RouteKey: `${method} ${path}`,
       AuthorizationType: 'JWT',
-      AuthorizationScopes: ['waste2watt-api/access'],
+      AuthorizationScopes: ['aws.cognito.signin.user.admin'],
       AuthorizerId: Match.anyValue(),
     });
   }
@@ -159,11 +159,12 @@ test('state machine retains all six tasks, catches failures, and cannot report s
     const state = definition.States[name];
     assert.equal(state.Type, 'Task');
     assert.equal(state.Next, pipelineStages[index + 1] ?? 'ImplementationRequired');
-    assert.equal(state.Catch[0].Next, 'RecordAnalysisFailure');
+    assert.equal(state.Catch[0].Next, 'MarkScanFailed');
   }
   assert.equal(definition.States.RecordAnalysisFailure.Next, 'AnalysisFailed');
   assert.equal(definition.States.AnalysisFailed.Type, 'Fail');
-  assert.equal(definition.States.ImplementationRequired.Next, 'RecordAnalysisFailure');
+  assert.equal(definition.States.ImplementationRequired.Next, 'MarkScanFailed');
+  assert.equal(definition.States.MarkScanFailed.Next, 'RecordAnalysisFailure');
 });
 
 test('EventBridge filters uploads from this bucket and targets Step Functions with DLQ', () => {
@@ -173,7 +174,7 @@ test('EventBridge filters uploads from this bucket and targets Step Functions wi
       'detail-type': ['Object Created'],
       detail: {
         bucket: { name: [Match.anyValue()] },
-        object: { key: [{ prefix: 'uploads/' }] },
+        object: { key: [{ prefix: 'private/' }] },
       },
     },
     Targets: [
@@ -232,26 +233,47 @@ test('execution-level terminal failures also reach the failure queue', () => {
       'detail-type': ['Step Functions Execution Status Change'],
       detail: { stateMachineArn: [Match.anyValue()], status: ['FAILED', 'TIMED_OUT', 'ABORTED'] },
     },
-    Targets: [
+    Targets: Match.arrayWith([
       Match.objectLike({
         Arn: Match.anyValue(),
         RetryPolicy: { MaximumRetryAttempts: 2, MaximumEventAgeInSeconds: 86400 },
       }),
-    ],
+    ]),
   });
 });
 
-test('logs and alarms exist; placeholder roles have no data or AI permissions', () => {
+test('logs and alarms exist; runtime roles access only scan resources and never AI', () => {
   api.resourceCountIs('AWS::Logs::LogGroup', 2);
-  pipeline.resourceCountIs('AWS::Logs::LogGroup', 2);
-  observability.resourceCountIs('AWS::CloudWatch::Alarm', 6);
+  pipeline.resourceCountIs('AWS::Logs::LogGroup', 3);
+  observability.resourceCountIs('AWS::CloudWatch::Alarm', 7);
   for (const template of [api, pipeline]) {
     for (const policy of Object.values(template.findResources('AWS::IAM::Policy'))) {
       for (const statement of policy.Properties.PolicyDocument.Statement) {
         const actions: string[] = Array.isArray(statement.Action)
           ? statement.Action
           : [statement.Action];
-        assert.ok(actions.every((action) => !/^(s3|dynamodb|bedrock|sagemaker):/.test(action)));
+        assert.ok(actions.every((action) => !/^(bedrock|sagemaker):/.test(action)));
+        const resources = JSON.stringify(statement.Resource);
+        assert.ok(!resources.includes('DailyMetrics') && !resources.includes('RecoveryFactors'));
+        for (const action of actions) {
+          if (action.startsWith('dynamodb:')) {
+            assert.ok(
+              [
+                'dynamodb:GetItem',
+                'dynamodb:PutItem',
+                'dynamodb:UpdateItem',
+                'dynamodb:Query',
+              ].includes(action),
+            );
+            assert.ok(resources.includes('WasteScans'));
+            if (action === 'dynamodb:Query') assert.ok(resources.includes('/index/OwnerCreatedAt'));
+          }
+          if (action.startsWith('s3:')) {
+            assert.ok(['s3:PutObject', 's3:GetObject', 's3:GetObjectVersion'].includes(action));
+            assert.ok(resources.includes('/private/*'));
+            if (template === api) assert.equal(action, 's3:PutObject');
+          }
+        }
         assert.ok(actions.every((action) => !action.includes('*')));
         if (statement.Resource === '*') {
           const allowed = [

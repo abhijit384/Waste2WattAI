@@ -1,13 +1,19 @@
 ﻿# Tests
 
-Root npm test runs one Node API boundary test, two Python unittest boundary tests,
-and infrastructure assertions from infra/tests/infrastructure.test.ts.
+npm test runs 19 Node API/SDK/status tests, 2 Python boundary tests, 13 CDK
+assertions and 20 frontend Vitest tests. Shared contracts build first.
 
-Node 24 uses its native test runner/type stripping. Python has no runtime test
-dependencies. CDK assertions synthesize local templates and verify storage security,
-table keys, Cognito code flow/scopes, all nine JWT-protected routes, all six workflow
-stages, EventBridge wiring, DLQ, logs/alarms, constrained IAM, outputs, configuration,
-and explicit worker failure. Artifacts remain inside infra/cdk.test.out.
+Node tests verify trusted JWT identity, strict input, owned create/read/list,
+MIME/size limits, server keys, retry state, safe errors, actual SDK POST policy
+generation and owner-index Query/cursor behavior. AWS client sends are test
+doubles; presigning uses test-only credentials locally without network calls.
+Status tests cover owned metadata matching, terminal failures and duplicates.
 
-Tests verify infrastructure definitions and placeholders. They do not deploy resources,
-make model calls, validate real cloud integrations, or fabricate business results.
+CDK tests synthesize locally to infra/cdk.test.out and assert bucket privacy,
+encryption/CORS/lifecycle, table keys/GSI/PITR, Cognito configuration, JWT routes,
+pipeline/status/failure wiring, queue/logs/alarms and scan-only IAM.
+Frontend tests cover configuration, protected routing, file validation and
+important loading/error/empty/status/product shell states using isolated fixtures.
+
+Tests do not deploy, invoke models or validate live AWS integration. Test fixtures
+are not an application fake authentication backend or fabricated AI results.

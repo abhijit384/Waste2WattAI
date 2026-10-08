@@ -23,6 +23,11 @@ export class Waste2WattObservabilityStack extends Stack {
       });
     const period = Duration.minutes(5);
     alarm(
+      'ScanStatusErrors',
+      props.pipeline.statusFunction.metricErrors({ period, statistic: 'Sum' }),
+      'Scan status persistence failures',
+    );
+    alarm(
       'ApiLambdaErrors',
       props.api.placeholderFunction.metricErrors({ period, statistic: 'Sum' }),
       'API Lambda invocation errors',

@@ -3,7 +3,8 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import type { Construct } from 'constructs';
 import type { InfrastructureConfig } from '../config.ts';
 
-export const apiScope = 'waste2watt-api/access';
+// SRP sign-in issues this reserved Cognito access-token scope, not OAuth custom scopes.
+export const apiScope = 'aws.cognito.signin.user.admin';
 
 export interface AuthStackProps extends StackProps {
   config: InfrastructureConfig;
@@ -54,6 +55,7 @@ export class Waste2WattAuthStack extends Stack {
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
+          cognito.OAuthScope.COGNITO_ADMIN,
           cognito.OAuthScope.resourceServer(resourceServer, {
             scopeName: 'access',
             scopeDescription: 'API access',

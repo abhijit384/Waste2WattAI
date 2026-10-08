@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/cdk.test.out/**',
       'infra/.cdk/**',
       '.tools/**',
+      '.browser-profile/**',
     ],
   },
   js.configs.recommended,

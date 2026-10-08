@@ -1,20 +1,17 @@
 ﻿# Waste2Watt infrastructure
 
-AWS CDK v2 TypeScript defines five stacks: Data, Auth, API, Pipeline, and Observability.
-Nothing is deployed. See [Phase 2 decisions](../docs/PHASE2_INFRASTRUCTURE.md).
-
-From the repository root:
+Five AWS CDK v2 TypeScript stacks define Data, Auth, API, Pipeline and Observability.
+Nothing is deployed. Phase 3 wires real scan APIs, private POST uploads and status
+persistence; AI analysis remains a deliberate failure boundary.
 
 ```powershell
-npm run build
-npm run typecheck
-npm run lint
-npm test
+npm run check
 npm run synth --workspace @waste2watt/infra
 ```
 
-The synth helper invokes the local `cdk synth --lookups false`, keeps the CDK
-cache in `infra/.cdk`, and writes assemblies to `infra/cdk.out`. Unit-test artifacts
-are in `infra/cdk.test.out`. All are ignored. No Docker, AWS account lookup, deployment,
-or bootstrap is required. Override settings with CDK context or W2W environment
-variables; see [deployment documentation](../docs/DEPLOYMENT.md).
+Run from the repository root. The helper invokes local cdk synth --lookups false,
+keeps cache in infra/.cdk and assemblies in infra/cdk.out. Test artifacts remain
+in infra/cdk.test.out. No Docker, account lookup, bootstrap or deployment is required.
+See [deployment configuration](../docs/DEPLOYMENT.md),
+[Phase 3 decisions](../docs/PHASE3_APPLICATION.md) and
+[historical Phase 2 report](../docs/PHASE2_INFRASTRUCTURE.md).

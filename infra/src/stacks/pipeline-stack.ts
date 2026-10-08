@@ -5,6 +5,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
@@ -32,6 +33,7 @@ export class Waste2WattPipelineStack extends Stack {
   readonly failureQueue: sqs.Queue;
   readonly placeholderFunction: NodejsFunction;
   readonly objectCreatedRule: events.Rule;
+  readonly statusFunction: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: PipelineStackProps) {
     super(scope, id, props);
@@ -59,6 +61,38 @@ export class Waste2WattPipelineStack extends Stack {
       environment: { STAGE: props.config.stage },
       bundling: { format: OutputFormat.CJS, target: 'node22', sourceMap: true },
     });
+    const statusLogs = new logs.LogGroup(this, 'ScanStatusLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    this.statusFunction = new NodejsFunction(this, 'ScanStatus', {
+      entry: join(projectRoot, 'services/api/src/status-handler.ts'),
+      depsLockFilePath: join(projectRoot, 'package-lock.json'),
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      handler: 'handler',
+      timeout: Duration.seconds(20),
+      memorySize: 256,
+      reservedConcurrentExecutions: 5,
+      logGroup: statusLogs,
+      environment: {
+        WASTE_SCANS_TABLE: props.data.wasteScans.tableName,
+        IMAGE_BUCKET: props.data.imageBucket.bucketName,
+      },
+      bundling: { format: OutputFormat.CJS, target: 'node22', sourceMap: true, bundleAwsSDK: true },
+    });
+    this.statusFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem'],
+        resources: [props.data.wasteScans.tableArn],
+      }),
+    );
+    this.statusFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject', 's3:GetObjectVersion'],
+        resources: [props.data.imageBucket.arnForObjects('private/*')],
+      }),
+    );
     const failed = new sfn.Fail(this, 'AnalysisFailed', {
       error: 'AnalysisFailed',
       cause: 'Analysis failed; inspect the failure queue and execution history.',
@@ -80,10 +114,26 @@ export class Waste2WattPipelineStack extends Stack {
     });
     recordFailure.addCatch(failed, { resultPath: '$.queueFailure' });
     recordFailure.next(failed);
+    const markFailed = new tasks.LambdaInvoke(this, 'MarkScanFailed', {
+      lambdaFunction: this.statusFunction,
+      payloadResponseOnly: true,
+      resultPath: sfn.JsonPath.DISCARD,
+      payload: sfn.TaskInput.fromObject({
+        action: 'failed',
+        event: sfn.JsonPath.objectAt('$'),
+        failure: sfn.JsonPath.objectAt('$.failure'),
+      }),
+    });
+    markFailed.addCatch(recordFailure, { resultPath: '$.statusFailure' });
+    markFailed.next(recordFailure);
     const stages = pipelineStages.map((name) => {
       const task = new tasks.LambdaInvoke(this, name, {
-        lambdaFunction: this.placeholderFunction,
-        payload: sfn.TaskInput.fromObject({ stage: name, event: sfn.JsonPath.objectAt('$') }),
+        lambdaFunction: name === 'ValidateImage' ? this.statusFunction : this.placeholderFunction,
+        payload: sfn.TaskInput.fromObject({
+          stage: name,
+          action: 'uploaded',
+          event: sfn.JsonPath.objectAt('$'),
+        }),
         payloadResponseOnly: true,
         resultPath: `$.${name}`,
         retryOnServiceExceptions: false,
@@ -99,7 +149,7 @@ export class Waste2WattPipelineStack extends Stack {
         maxAttempts: 2,
         backoffRate: 2,
       });
-      task.addCatch(recordFailure, { resultPath: '$.failure' });
+      task.addCatch(markFailed, { resultPath: '$.failure' });
       return task;
     });
     let chain = sfn.Chain.start(stages[0]!);
@@ -112,7 +162,7 @@ export class Waste2WattPipelineStack extends Stack {
       }),
       resultPath: '$.failure',
     });
-    chain = chain.next(guard.next(recordFailure));
+    chain = chain.next(guard.next(markFailed));
     const executionLogs = new logs.LogGroup(this, 'StateMachineLogs', {
       retention: logs.RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.RETAIN,
@@ -129,7 +179,7 @@ export class Waste2WattPipelineStack extends Stack {
         detailType: ['Object Created'],
         detail: {
           bucket: { name: [props.data.imageBucket.bucketName] },
-          object: { key: [{ prefix: 'uploads/' }] },
+          object: { key: [{ prefix: 'private/' }] },
         },
       },
     });
@@ -156,6 +206,13 @@ export class Waste2WattPipelineStack extends Stack {
       new targets.SqsQueue(this.failureQueue, {
         maxEventAge: Duration.hours(24),
         retryAttempts: 2,
+      }),
+    );
+    terminalFailureRule.addTarget(
+      new targets.LambdaFunction(this.statusFunction, {
+        retryAttempts: 2,
+        maxEventAge: Duration.hours(24),
+        deadLetterQueue: this.failureQueue,
       }),
     );
     new CfnOutput(this, 'StateMachineArn', { value: this.stateMachine.stateMachineArn });

@@ -1,64 +1,100 @@
 ﻿# API
 
-## Defined routes
+HTTP API application routes require a Cognito access token in the Authorization
+Bearer header. API Gateway checks issuer, audience, expiry and the
+aws.cognito.signin.user.admin scope. The Lambda additionally checks token_use,
+client_id and a UUID sub from trusted authorizer claims. It never decodes an
+unverified header as identity or accepts userId/ownerId from a request.
 
-Phase 2 defines these HTTP API routes, all protected by the same Cognito JWT
-authorizer and the required waste2watt-api/access scope. All integrate with the
-existing services/api/src/handler.ts. Nothing is deployed.
+The native Amplify SRP flow produces this Cognito scope, rather than the custom
+OAuth scope defined for future hosted login. See
+[AWS native authentication flow scope behavior](https://docs.aws.amazon.com/cognito/latest/developerguide/authentication-flows-public-server-side.html).
+All nine routes remain JWT protected. CORS admits only the configured frontend
+origin. Responses use cache-control: no-store.
 
-| Method | Route                      | Future behavior                               |
-| ------ | -------------------------- | --------------------------------------------- |
-| POST   | /scans                     | Register an owned scan                        |
-| POST   | /scans/{scanId}/upload-url | Create a presigned S3 image upload URL        |
-| GET    | /scans                     | List owned scans by creation time             |
-| GET    | /scans/{scanId}            | Read an owned scan and its analysis           |
-| GET    | /dashboard                 | Read owner-scoped daily metrics               |
-| GET    | /dashboard/hotspots        | Read owner-scoped hotspot aggregates          |
-| POST   | /simulate                  | Compare evidenced recovery options            |
-| POST   | /agent/chat                | Ask the future Strands/Bedrock decision agent |
-| GET    | /recovery-factors          | Read versioned approved factors               |
+## Implemented scan routes
 
-These paths supersede Phase 1's proposed /v1 paths. Payloads, pagination, validation,
-idempotency keys, upload restrictions, and successful status codes remain deferred.
+| Route                           | Input                                      | Response                        |
+| ------------------------------- | ------------------------------------------ | ------------------------------- |
+| POST /scans                     | quantityKg, unit: kg, optional sourceLabel | 201: scanId, status: CREATED    |
+| POST /scans/{scanId}/upload-url | contentType, sizeBytes                     | 200: url, fields, expiresAt     |
+| GET /scans?limit=20&cursor=...  | limit 1..50; optional opaque cursor        | 200: items, optional nextCursor |
+| GET /scans/{scanId}             | UUID scanId                                | 200: WasteScan                  |
 
-## Current Lambda response
+Create and upload bodies are strict shared Zod schemas. JSON body length is
+bounded at 4096 characters; base64 bodies and extra fields are rejected.
+quantityKg must be finite, positive and at most 1,000,000; it is user-entered
+approximate mass, not a measured result. sourceLabel is optional, trimmed, and
+1..80 characters.
 
-Every authorized invocation returns HTTP 501, JSON content type, no-store cache
-control, and this explicit error. It does not read or write storage.
+Creation uses a server-generated cryptographic UUID and persists the Cognito sub,
+timestamps and CREATED status. organizationId is recorded only if a trusted
+custom:organizationId claim is available. The current Cognito configuration does
+not provision organizational membership or custom access-token enrichment.
+
+Upload MIME types are image/jpeg, image/png and image/webp. sizeBytes must be
+an integer from 1 through 10,485,760 (10 MiB, the configured 10 MB limit).
+The server checks ownership and state before signing. It generates the object key;
+the request cannot specify a filename, owner or S3 key.
+
+The response is a five-minute presigned POST, not a permanent object URL. Submit
+a multipart FormData POST to url, appending every fields entry, then file last.
+Do not manually set the multipart Content-Type header. The policy binds the
+exact key, declared MIME type, exact declared file size, AES256 encryption and
+204 success status. Credentials in the signing fields are short-lived signed
+upload material, never bucket access secrets.
+
+Requesting credentials conditionally persists UPLOADING and object metadata
+before returning. A retry can reuse the same key only with identical MIME and
+size while UPLOADING. Later states return 409. A signed POST remains replayable
+until expiration; full event/image-version idempotency is deferred.
+
+List uses Query on OwnerCreatedAt with an exact owner partition and descending
+creation order. No table Scan is used. The bounded base64url cursor is validated
+and bound to the current user, including on later pages. The GSI is eventually
+consistent; exact get uses a consistent owner-scoped GetItem. A foreign or
+missing scan produces the same 404. Internal ownerId/index fields and objectKey
+are omitted from scan responses.
+
+WasteScan includes scanId, userId, optional organizationId, status, createdAt,
+updatedAt, quantityKg, unit, optional sourceLabel/contentType/sizeBytes/failureCode.
+It does not include AI results or permanent S3 URLs.
+
+## Processing states
+
+CREATED -> UPLOADING -> UPLOADED -> PROCESSING -> FAILED.
+
+S3 ObjectCreated drives the workflow. The status worker matches the private key
+and database record, checks version-specific object metadata, and persists upload
+and processing status. These transitions may occur too quickly to be observed
+individually. Placeholder analysis deliberately fails with
+ANALYSIS_NOT_IMPLEMENTED. FAILED and COMPLETED are terminal; no code in Phase 3
+generates COMPLETED or a classification.
+
+UPLOAD_REJECTED denotes metadata mismatch; PROCESSING_FAILED denotes another
+processing failure. Terminal workflow failures also attempt a persisted FAILED
+status. EventBridge delivery is best effort and DLQs/alarms capture failures;
+status reconciliation and replay tooling are deferred.
+
+## Errors and deferred routes
 
 ```json
 {
   "error": {
-    "code": "NOT_IMPLEMENTED",
-    "message": "Waste2Watt API is a scaffold; this operation is not implemented.",
-    "requestId": "<API Gateway request ID>"
+    "code": "INVALID_REQUEST",
+    "message": "Check the request fields, image type, and size.",
+    "requestId": "request-correlation-id"
   }
 }
 ```
 
-After a future deployment, API Gateway will reject missing/invalid JWTs and tokens
-without the required access scope before invoking Lambda. JWT issuer is the user
-pool URL; audience is the public web client's ID. Requiring the custom scope helps
-ensure that access tokens, rather than ID tokens, authorize API calls.
-The public client uses authorization-code flow; the future frontend must use PKCE
-and request openid, email, profile, and waste2watt-api/access. No client secret exists.
+Expected statuses: 400 invalid request/cursor, 401 missing or inappropriate
+identity, 404 unavailable owned scan, 409 upload state conflict, 500 unexpected
+service failure, 503 unavailable runtime configuration. Gateway authentication
+errors can use its own response format. No stack traces or AWS exception details
+are returned. Logs contain correlation ID, route, status and safe error code;
+JWTs, headers, labels and upload credentials are not logged.
 
-The hosted login callback is frontendOrigin/auth/callback; logout returns to
-frontendOrigin/. CORS permits only the configured frontend origin, GET/POST/OPTIONS,
-and authorization/content-type headers. Browser preflight is handled by HTTP API CORS
-and is not an application route. Stage throttling is 10 requests/second with burst 20.
-
-Runtime owner checks still need implementation: ownerId must be derived from Cognito
-sub and used in all repository keys. JWT validation alone does not implement row ownership.
-
-## Internal pipeline input
-
-The image pipeline consumes native S3 EventBridge Object Created events, with bucket
-name and object key in detail.bucket.name and detail.object.key. Keys must start with
-uploads/. Later presigned keys should use uploads/{ownerId}/{scanId}/{opaqueName}.
-Metadata-to-scan verification, object version checks, content validation, and duplicate
-event handling are deferred. The Phase 1 AnalysisRequestedEvent contract is not wired
-to a custom event bus in Phase 2.
-
-See [data model](DATA_MODEL.md) for storage keys and [deployment](DEPLOYMENT.md) for
-configuration and outputs.
+GET /dashboard, GET /dashboard/hotspots, POST /simulate, POST /agent/chat and
+GET /recovery-factors retain honest 501 boundaries. The UI dashboard derives
+recent scan metadata from GET /scans; it does not call an invented metrics API.

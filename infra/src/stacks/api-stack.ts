@@ -6,10 +6,12 @@ import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import type { Construct } from 'constructs';
 import type { InfrastructureConfig } from '../config.ts';
 import { projectRoot } from '../paths.ts';
 import { apiScope, type Waste2WattAuthStack } from './auth-stack.ts';
+import type { Waste2WattDataStack } from './data-stack.ts';
 
 export const apiRoutes = [
   [http.HttpMethod.POST, '/scans'],
@@ -26,6 +28,7 @@ export const apiRoutes = [
 export interface ApiStackProps extends StackProps {
   config: InfrastructureConfig;
   auth: Waste2WattAuthStack;
+  data: Waste2WattDataStack;
 }
 
 export class Waste2WattApiStack extends Stack {
@@ -48,9 +51,32 @@ export class Waste2WattApiStack extends Stack {
       timeout: Duration.seconds(10),
       reservedConcurrentExecutions: 10,
       logGroup,
-      environment: { STAGE: props.config.stage },
-      bundling: { format: OutputFormat.CJS, target: 'node22', sourceMap: true },
+      environment: {
+        STAGE: props.config.stage,
+        WASTE_SCANS_TABLE: props.data.wasteScans.tableName,
+        IMAGE_BUCKET: props.data.imageBucket.bucketName,
+        COGNITO_CLIENT_ID: props.auth.userPoolClient.userPoolClientId,
+      },
+      bundling: { format: OutputFormat.CJS, target: 'node22', sourceMap: true, bundleAwsSDK: true },
     });
+    this.placeholderFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
+        resources: [props.data.wasteScans.tableArn],
+      }),
+    );
+    this.placeholderFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:Query'],
+        resources: [`${props.data.wasteScans.tableArn}/index/OwnerCreatedAt`],
+      }),
+    );
+    this.placeholderFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:PutObject'],
+        resources: [props.data.imageBucket.arnForObjects('private/*')],
+      }),
+    );
     const authorizer = new HttpJwtAuthorizer(
       'CognitoJwt',
       props.auth.userPool.userPoolProviderUrl,

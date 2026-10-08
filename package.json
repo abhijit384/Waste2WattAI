@@ -15,13 +15,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @waste2watt/web",
+    "dev": "npm run build --workspace @waste2watt/shared && npm run dev --workspace @waste2watt/web",
     "build": "npm run build --workspace @waste2watt/shared && npm run build --workspace @waste2watt/api && npm run build --workspace @waste2watt/infra && npm run build --workspace @waste2watt/web",
     "typecheck": "npm run build --workspace @waste2watt/shared && tsc --noEmit && npm run typecheck --workspaces --if-present",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npm run test:ts && npm run test:python && npm run test --workspace @waste2watt/infra",
+    "test": "npm run build --workspace @waste2watt/shared && npm run test:ts && npm run test:python && npm run test --workspace @waste2watt/infra && npm run test --workspace @waste2watt/web",
     "test:ts": "node --test tests/*.test.ts",
     "test:python": "python -B -m unittest discover -s tests/python -v",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build"

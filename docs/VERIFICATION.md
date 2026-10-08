@@ -1,72 +1,80 @@
-﻿# Verification
+﻿# Phase 3 verification
 
-Local Phase 2 verification on 2026-10-08 in E:\Waste2WattAI. Nothing was deployed.
-
-## Toolchain
-
-Node.js 24.16.0; npm 11.13.0; Python 3.14.6; TypeScript 5.9.3.
-AWS CDK library 2.272.0; CDK CLI 2.1144.0; Constructs 10.8.1; esbuild 0.25.12.
-Exact npm resolutions are recorded in package-lock.json.
+Local verification on 2026-10-08 in E:\Waste2WattAI. Nothing was deployed.
 
 ## Results
 
-| Check                                       | Result                                                                     |
-| ------------------------------------------- | -------------------------------------------------------------------------- |
-| npm install --ignore-scripts                | Passed; required CDK/Constructs/esbuild dependencies installed locally     |
-| npm run build                               | Passed for shared, API, infra and web                                      |
-| npm run typecheck                           | Passed for workspaces, service tests and infrastructure tests              |
-| npm run lint                                | Passed, zero warnings                                                      |
-| npm run format:check                        | Passed                                                                     |
-| npm test                                    | Passed: 1 Node API test, 2 Python tests, 13 CDK/configuration/worker tests |
-| cdk synth --lookups false from infra        | Passed; all five stack templates emitted locally                           |
-| npm run synth --workspace @waste2watt/infra | Passed; helper invokes the same local synthesis command                    |
-| git diff --check                            | Passed                                                                     |
+| Check                        | Result                                                                                       |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| npm install --ignore-scripts | Passed; required Amplify, SDK v3, Zod and frontend test dependencies installed               |
+| npm ls --depth=0             | Passed; workspace dependencies resolved                                                      |
+| npm run build                | Passed: shared, API, infrastructure and production frontend                                  |
+| npm run typecheck            | Passed: workspaces, service tests and CDK tests                                              |
+| npm run lint                 | Passed with zero warnings                                                                    |
+| npm run format:check         | Passed                                                                                       |
+| npm test                     | Passed: 19 Node + 2 Python + 13 CDK + 20 frontend = 54 tests                                 |
+| npm run check                | Passed: complete verification chain                                                          |
+| cdk synth --lookups false    | Passed through infrastructure synth helper; five local stack assemblies                      |
+| git diff --check             | Passed                                                                                       |
+| Local browser rendering      | Desktop landing, exact 390px mobile landing and explicit auth configuration screen inspected |
 
-Infrastructure tests cover private/encrypted storage, lifecycle/CORS, all three table
-keys/PITR/billing, Cognito code flow and scope, all nine JWT-authorized routes,
-state-machine stages/catches/failure guard, upload and terminal-failure EventBridge
-wiring, encrypted/TLS-protected DLQ, logs/alarms, IAM wildcard constraints, outputs,
-configuration validation, explicit placeholder failure, and production retention/MFA.
+The frontend is split into the application and lazy Cognito form chunks. Vite
+reports two upstream Zod pure-comment annotation notices; these comments are
+removed by Rollup and do not fail compilation. CDK prints its informational
+unconfigured feature-flag message. esbuild marks SDK bundle sizes; assets remain
+within Lambda packaging limits. npm installation reported upstream peer override
+notices; the installed dependency tree has no missing/invalid direct packages.
 
-## Cloud assembly inspection
+## Coverage
 
-CloudFormation definitions are in infra/cdk.out:
+Node tests cover JWT identity, client/scope validation, creation, trusted optional
+organization identity, strict body validation, ownership, MIME/size rejection,
+server keys, upload retries/terminal guards, safe errors, real SDK POST policy
+constraints, descending owner-index Query, bound cursors, consistent reads,
+processing/failure persistence and duplicate metadata events. AWS sends use
+injected test doubles; presigning uses test-only credentials without network calls.
 
-| Stack                            | Defined resources |
-| -------------------------------- | ----------------- |
-| Waste2WattDataStack-dev          | 5                 |
-| Waste2WattAuthStack-dev          | 4                 |
-| Waste2WattApiStack-dev           | 26                |
-| Waste2WattPipelineStack-dev      | 13                |
-| Waste2WattObservabilityStack-dev | 6                 |
-| Total                            | 54                |
+Frontend tests cover configuration, protected routing, file boundaries, loading,
+empty/error/retry states, recent scan metadata, camera enhancement, direct upload
+failure recovery, polling to honest development failure, response validation,
+Bearer access token usage, future shells and error boundaries. They do not claim
+real Cognito sign-in or real S3 upload success.
 
-These counts include policies, roles, invocation permissions, integrations and
-routes. They are definitions, not live resources. Required outputs were verified
-by CDK assertions and template inspection.
+CDK assertions cover bucket privacy/encryption/ownership/CORS/lifecycle, three
+tables and existing owner GSI, Cognito/MFA, nine JWT routes, scan-only IAM, all six
+workflow boundaries, upload and terminal EventBridge rules, status persistence,
+DLQ, logs/alarms, outputs and local configuration. Python boundaries remain unchanged.
 
-## Confirmed corrections
+## Synthesized cloud assembly
 
-Cognito OAuth scopes are synthesized as a resource-server reference joined with
-/access; the test now checks this intrinsic expression and the server identifier.
-The installed CLI no longer accepts --all for synth; it was removed because synth
-already emits all stack assemblies. Cross-stack reference strength is explicitly
-pinned to strong, retaining producer-protecting export/import behavior.
+| Stack                            | CloudFormation resources |
+| -------------------------------- | ------------------------ |
+| Waste2WattDataStack-dev          | 5                        |
+| Waste2WattAuthStack-dev          | 4                        |
+| Waste2WattApiStack-dev           | 27                       |
+| Waste2WattPipelineStack-dev      | 18                       |
+| Waste2WattObservabilityStack-dev | 7                        |
+| Total                            | 61                       |
 
-The CLI's message about 80 unconfigured feature flags is informational. Library/CLI
-versions are pinned, and the deliberate cross-stack reference mode is configured;
-there were no final synthesis errors or construct warnings.
+Counts include roles, policies, routes, integrations and invocation permissions;
+they describe templates, not live resources. All eight required outputs remain
+present. Core definitions include one private bucket, three tables, Cognito pool
+and public client, HTTP API with nine routes and JWT authorizer, three Lambdas,
+one Standard state machine, two EventBridge rules, one failure queue, five explicit
+log groups and seven alarms.
 
-## Limits and confinement
+## Visual evidence and limits
 
-Tests and asset bundling write inside infra/cdk.test.out. Synthesis writes inside
-infra/cdk.out, and the CDK helper keeps its cache inside infra/.cdk. npm/pip caches,
-node_modules, the Python environment and build outputs remain inside the repository.
+[Desktop landing](screenshots/phase3-landing-desktop.png),
+[mobile landing](screenshots/phase3-landing-mobile.png) and
+[unconfigured authentication](screenshots/phase3-auth-configuration.png) are local
+Chrome captures. The exact 390px viewport reports document width 390px, with no
+horizontal overflow. Optional node tests/preview.mjs reproduces captures while
+Vite runs on 127.0.0.1:5173; it requires Windows Chrome and uses a project-local
+browser profile. It does not bypass app authentication.
 
-No bootstrap, deployment, CloudFormation write, console change, image upload,
-Bedrock call, SageMaker endpoint/job, Strands invocation, dataset seed, or recovery
-calculation was performed. No real AWS integration/security control is claimed as
-runtime-validated. Browser interaction, load tests and scientific validity are deferred.
-
-Phase 1's one Node/two Python tests still pass. Its earlier Ruff checks passed;
-Python runtime sources were unchanged in Phase 2. No AI/ML runtime dependency was installed.
+All dependencies, caches, generated bundles/assemblies, browser profiles and
+screenshots stay in this repository. No bootstrap, deployment, AWS write,
+console change, real image upload, Bedrock invocation, SageMaker endpoint/job,
+Strands invocation, factor seed or recovery calculation was performed.
+Live cloud integration, production hosting and scientific validity remain deferred.

@@ -67,10 +67,12 @@ export interface DecisionResponse {
 }
 
 export interface ApiError {
-  error: { code: 'NOT_IMPLEMENTED'; message: string; requestId: string };
+  error: { code: string; message: string; requestId: string };
 }
 
 export interface AnalysisRequestedEvent {
   schemaVersion: '1';
   request: AnalysisRequest;
 }
+
+export * from './scans.js';
