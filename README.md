@@ -12,16 +12,21 @@ All five dev application stacks reached CREATE_COMPLETE; the final diff has no c
 Live sign-in, owned scan/upload and expected unfinished-analysis failure checks passed.
 Local frontend configuration was generated; Phase 4 manual desktop acceptance passed.
 See docs/PHASE4_FIRST_DEPLOYMENT.md and docs/INTEGRATION_TESTING.md.
-Previous accounts are forbidden. Amplify Hosting awaits separate review and approval.
+Previous accounts are forbidden. Amplify Hosting is now deployed for the private
+GitHub `main` branch at
+https://main.d1kq8pn2nvv063.amplifyapp.com. The exact HTTPS origin is integrated
+with API Gateway, private S3 POST CORS and Cognito callback/logout allowlists; all
+five stacks have zero remaining CDK diff.
 Phase 4 browser acceptance found a Cognito subject-validation bug blocking some
 real users. The explicitly approved API/status fixes and branded verification-email
 template are deployed; 15 real authenticated browser checks passed, including a
 non-RFC Cognito subject, JPEG upload, foreign-user rejection and owned history.
 See [limited update results](docs/PHASE4_LIMITED_UPDATE.md).
-Amplify build settings are prepared for deployment review; actual phone capture
-and hosted-domain acceptance remain deferred until approved HTTPS hosting.
+Hosted dashboard/history and PNG/JPEG/WebP uploads now pass; physical phone capture
+and hosted signup/email-confirmation acceptance remain pending.
 See [final acceptance results](docs/PHASE4_FINAL_ACCEPTANCE.md).
 See [hosting readiness and manual test results](docs/PHASE4_HOSTING_READINESS.md).
+See [final deployment and Stage 2 results](docs/PHASE4_FINAL_DEPLOYMENT.md).
 AI analysis intentionally fails
 until implemented; no classifications, recovery factors, or sustainability
 estimates are fabricated.

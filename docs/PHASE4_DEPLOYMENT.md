@@ -1,8 +1,10 @@
 ﻿# Phase 4 deployment report
 
-Current first deployment: [successful five-stack deployment and live verification](PHASE4_FIRST_DEPLOYMENT.md).
-All five stacks are CREATE_COMPLETE in 415150458314/us-east-1 using waste2watt-dev.
-The final read-only diff has zero differences. Hosting remains deferred.
+Current Stage 2 result: [Amplify origin integration and final deployment status](PHASE4_FINAL_DEPLOYMENT.md).
+The Amplify site and approved origin integration are deployed. All five stacks have
+zero CDK differences; hosted authenticated acceptance and physical Android testing
+remain pending. The initial deployment record is
+[here](PHASE4_FIRST_DEPLOYMENT.md).
 
 **Historical previous-account report below. Never execute its previous-profile commands.**
 Current status: [new account review](PHASE4_NEW_ACCOUNT_REVIEW.md).

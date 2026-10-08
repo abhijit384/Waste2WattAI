@@ -1,25 +1,28 @@
 ﻿# Phase 4 browser acceptance and Amplify Hosting readiness
 
 Review date: 2026-10-08. Project: E:\Waste2WattAI. Target: waste2watt-dev,
-us-east-1. Amplify Hosting has not been created or deployed. No resources or test
-data were deleted. Bedrock, SageMaker and Phase 5 remain deferred.
+us-east-1. Amplify Hosting is deployed at
+https://main.d1kq8pn2nvv063.amplifyapp.com. Stage 2 origin integration has also
+been deployed and the five-stack CDK diff is zero. Authenticated hosted acceptance
+and physical Android testing are still pending. No resources or test data were
+deleted. Bedrock, SageMaker and Phase 5 remain deferred.
 
 ## Decision
 
-Hosting preparation and local acceptance are ready for **staged hackathon hosting
-deployment approval**. All 63 automated tests, production artifacts, synthesis and
-the zero-difference read-only five-stack diff passed. The user confirms the remaining
-desktop account, PNG/WebP, context, progress/error, history, keyboard and narrow
-layout checks work. Actual phone capture and future hosted-domain HTTPS/CORS/SPA
-acceptance are deferred until approved hosting. No Amplify or origin update was made.
-See [final acceptance](PHASE4_FINAL_ACCEPTANCE.md) and
-[limited update results](PHASE4_LIMITED_UPDATE.md) for evidence and its limits.
+Stage 1 hosting and Stage 2 origin integration are deployed. All 63 automated
+tests, production artifacts, synthesis and the post-deployment zero-difference
+five-stack diff passed. Public HTTPS pages, authenticated API/history, hosted
+PNG/JPEG/WebP uploads and API/S3 origin preflights work. Hosted signup/email
+confirmation and physical phone capture remain pending. See
+[final deployment](PHASE4_FINAL_DEPLOYMENT.md),
+[final acceptance](PHASE4_FINAL_ACCEPTANCE.md) and
+[limited update results](PHASE4_LIMITED_UPDATE.md) for evidence and limits.
 
-The frontend is running at http://localhost:5173 using the existing npm run dev
-configuration. Use localhost: 127.0.0.1 is a different origin and is not currently
-allowed by the deployed API/S3 CORS rules. Public identifiers were generated into
-ignored apps/web/.env.local from deployment outputs. No passwords, mailbox codes,
-tokens or signed upload fields were written into project files during this work.
+The frontend is hosted at https://main.d1kq8pn2nvv063.amplifyapp.com. The exact
+hosted origin and the existing http://localhost:5173 development origin are allowed
+by API and S3 CORS. `127.0.0.1` remains a different origin. Public identifiers are
+generated into ignored apps/web/.env.local from deployment outputs. No passwords,
+mailbox codes, tokens or signed upload fields were written into project files.
 
 ## Browser acceptance results
 
@@ -172,33 +175,29 @@ default amplifyapp.com domain for the demo; verify HTTPS and headers after hosti
 No custom domain, DNS or certificate resources have been created. These hosting
 headers do not alter API or S3 response headers.
 
-## Future origin and infrastructure changes
+## Stage 2 origin integration (deployed)
 
-The current allowed origin is exactly http://localhost:5173. Once the actual
-branch domain is known, use its exact HTTPS origin with no trailing slash and keep
-localhost only while needed. Do not use *.amplifyapp.com or wildcard CORS.
+The exact allowed HTTPS origin is
+`https://main.d1kq8pn2nvv063.amplifyapp.com`; `http://localhost:5173` remains for
+development. No wildcard origin is configured. The approved pre-deployment diff
+changed only the existing S3 bucket CORS, HTTP API CORS, and Cognito app-client
+callback/logout URL properties. Those three stacks completed `UPDATE_COMPLETE`;
+all five application stacks now show zero differences.
 
-Existing frontendOrigins configuration feeds API Gateway CORS, S3 POST CORS and
-Cognito callback/logout URLs. A future review should include:
+Live API OPTIONS and unauthenticated GET verified the exact allow-origin response.
+API methods remain GET/POST/OPTIONS and headers authorization/content-type. Live
+S3 OPTIONS verified POST and `content-type`/`x-amz-*`; the bucket remains private,
+encrypted and blocked from public access. Cognito retains localhost URLs and SRP/
+refresh flows; inline SRP does not use Hosted UI OAuth callbacks and
+`/auth/callback` is not implemented.
 
-- Data stack: S3 allowed origins (POST, content-type/x-amz-* remain constrained).
-- API stack: HTTP API allowed origins (GET/POST/OPTIONS, authorization/content-type).
-- Auth stack: callback/logout URL allowlists for the future origin. Current inline
-  SRP sign-in does not use Hosted UI OAuth callbacks; the app does not implement
-  /auth/callback, so do not claim Hosted UI acceptance.
-- Verify OPTIONS and actual authenticated requests/uploads from the hosted domain,
-  and confirm an unrelated origin receives no allow-origin response.
+Authenticated API/history/upload flows passed during Stage 2, and an unrelated
+origin received no allow-origin response. Hosted signup/email confirmation and
+physical Android acceptance remain pending.
 
-Prepare a new read-only diff with scripts/aws-dev.ps1 -Action Diff and the actual
-HostedOrigin before requesting deployment approval. The CORS origin changes have
-not been made because the Amplify domain does not exist yet.
-
-The present bug-fix diff requires API Lambda code and pipeline ScanStatus Lambda
-code updates. The email improvement adds a Cognito verification-message template
-update in the existing Auth stack. No resource replacement, deletion, new service,
-IAM change or Phase 5 implementation is intended. All require explicit deployment
-approval. They were subsequently explicitly approved and successfully deployed;
-the post-update diff has zero differences. No Amplify or CORS change was deployed.
+Earlier Phase 4 application fixes and Stage 2 origin changes were explicitly
+approved and deployed to existing stacks. The current post-deployment five-stack
+diff is zero. This report does not authorize Phase 5.
 
 ## Cost review
 
