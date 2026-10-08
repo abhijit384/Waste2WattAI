@@ -2,6 +2,35 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { createHandler, type ScanRepository } from '../services/api/src/scans.ts';
+import { createApiLogger } from '../services/api/src/logging.ts';
+
+test('API logger writes structured successful operations at INFO and failures at ERROR', () => {
+  const info: string[] = [];
+  const errors: string[] = [];
+  const log = createApiLogger({
+    info: (message) => info.push(message),
+    error: (message) => errors.push(message),
+  });
+  const success = { requestId: 'request-123', route: 'GET /scans', statusCode: 200 };
+  const failure = {
+    requestId: 'request-456',
+    route: 'POST /scans',
+    statusCode: 500,
+    errorCode: 'INTERNAL_ERROR',
+  };
+
+  log(success);
+  log(failure);
+
+  assert.deepEqual(
+    info.map((message) => JSON.parse(message)),
+    [success],
+  );
+  assert.deepEqual(
+    errors.map((message) => JSON.parse(message)),
+    [failure],
+  );
+});
 const handler = createHandler({
   repository: {} as ScanRepository,
   clientId: 'test-client',

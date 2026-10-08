@@ -190,12 +190,18 @@ test('rejects absent claims, ID token, wrong client, invalid sub and missing sco
 test('create persists owned secure ID, timestamps, index key and CREATED status', async () => {
   const f = fixture();
   const response = await f.handler(
-    event('POST /scans', { quantityKg: 2, unit: 'kg', sourceLabel: 'Canteen' }),
+    event('POST /scans', {
+      quantityKg: 2,
+      unit: 'kg',
+      sourceLabel: 'Private facility name',
+    }),
   );
   assert.equal(response.statusCode, 201);
   assert.deepEqual(JSON.parse(response.body!), { scanId, status: 'CREATED' });
   assert.equal(f.rows.get(`${owner}:${scanId}`)?.userId, owner);
   assert.equal(f.rows.get(`${owner}:${scanId}`)?.createdAtScanId, `${now}#${scanId}`);
+  assert.deepEqual(f.logs, [{ requestId: 'test-request', route: 'POST /scans', statusCode: 201 }]);
+  assert.ok(!JSON.stringify(f.logs).includes('Private facility name'));
 });
 test('rejects body user/org identity and invalid quantities/units', async () => {
   for (const body of [
@@ -328,6 +334,15 @@ test('returns safe internal errors and logs no JWT/user headers', async () => {
   assert.equal(response.statusCode, 500);
   assert.ok(!response.body!.includes('secret'));
   assert.ok(!JSON.stringify(f.logs).includes(owner));
+  assert.deepEqual(f.logs, [
+    {
+      requestId: 'test-request',
+      route: 'POST /scans',
+      statusCode: 500,
+      errorCode: 'INTERNAL_ERROR',
+    },
+  ]);
+  assert.ok(!JSON.stringify(f.logs).includes('secret trace'));
 });
 test('adapter uses descending owner-index Query and owner-bound pagination, never Scan', async () => {
   const commands: unknown[] = [];

@@ -10,8 +10,9 @@ Stage 2 is deployed. The existing Data, Auth and API stacks were updated in plac
 for the exact Amplify origin. All five application stacks have zero remaining CDK
 diff. Authenticated dashboard, history, scan upload, session restoration, sign-out
 and expected pipeline-failure checks have now passed using three labeled test
-images. Hosted signup/email confirmation, a repeat second-real-user isolation
-check and physical Android testing are still pending. Phase 5 has not started.
+images. Hosted signup/email confirmation and all ten physical Android tests are
+now user-confirmed passes. The approved logging fix is deployed and verified;
+Phase 4 is complete for the approved scope. Phase 5 has not started.
 
 The AWS identity was verified before deployment as the non-root IAM user
 `arn:aws:iam::415150458314:user/waste2watt-developer` using profile
@@ -117,7 +118,24 @@ The standard npm check first failed in the restricted sandbox because Vite could
 not resolve a test file (`EPERM`); rerunning with project access passed. This was a
 local test-runner permission issue, not an application test failure.
 
-## Acceptance still required
+## Historical acceptance checklist before final stabilization
+
+The checklist below describes the earlier pending state. Final stabilization is
+complete: the user confirmed hosted signup, verification email receipt, email
+confirmation, verified-account login and all ten Android tests. The API-only
+logging deployment reached UPDATE_COMPLETE; live authenticated GET /scans logged
+INFO, and a synthetic direct Lambda request lacking identity returned 401 and
+logged ERROR. Request correlation and safe metadata were preserved. No server
+fault was deliberately induced. The final five-stack CDK diff is zero.
+
+The complete validation run passed 64 tests plus typechecks, lint, formatting and
+production builds; CDK synthesis passed. Authenticated dashboard/history remained
+functional and browser console warnings/errors were absent. The SQS alarm is
+explained: ten executions show Phase3NotImplemented/AnalysisFailed and the two
+existing failure-reporting paths account for a stable twenty-message backlog.
+No queue bodies were read or messages modified; retention and alarm settings were
+preserved. See [final acceptance](PHASE4_FINAL_ACCEPTANCE.md) for findings and
+evidence limits. There are no remaining acceptance blockers in the approved scope.
 
 The user is testing signup and email confirmation directly in the visible browser;
 no password, confirmation code or token was requested in chat. The remaining

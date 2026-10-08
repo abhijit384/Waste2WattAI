@@ -2,8 +2,102 @@
 
 Review date: 2026-10-08. Project: E:\Waste2WattAI. Profile: waste2watt-dev.
 Region: us-east-1. Non-root waste2watt-developer identity was reverified in
-account 415150458314. This review made no AWS infrastructure modifications,
-deployments, resource creation, billing changes or model invocations.
+account 415150458314. Final stabilization deployed only the explicitly approved
+API Lambda logging code update. No resources or IAM permissions were added.
+
+## Current final-review status (2026-10-08)
+
+Phase 4 is **complete for its approved scope**. The user confirms all ten physical Android tests
+below passed. The user has also confirmed hosted signup, receipt of the Cognito
+verification email, email confirmation, and login using the verified account.
+The approved logging fix is deployed and verified. The failure-queue alarm remains
+active with an explained expected backlog. Phase 5 has not started.
+
+User-confirmed Android manual tests (all passed):
+
+1. Responsive mobile layout.
+2. Navigation buttons.
+3. Camera opening.
+4. Camera permissions.
+5. Photo preview.
+6. Gallery selection.
+7. Image upload.
+8. Quantity and location persistence.
+9. Scan history.
+10. Expected `ANALYSIS_NOT_IMPLEMENTED` status.
+
+This list records the user's manual results; they were not independently repeated
+on the physical device during this review.
+
+Hosted authentication results (user-confirmed manual tests):
+
+- New-user signup: passed.
+- Cognito verification email received: passed.
+- Email confirmation: passed.
+- Login with the verified account: passed.
+
+No passwords, verification codes, or tokens were shared in chat.
+
+The API logger now routes successful status codes to INFO and error responses to
+ERROR while serializing only request ID, route, status, and safe error code. Tests
+cover severity routing, structured field retention, request correlation, and the
+absence of request payload/exception text in logs. The API handler's authorization,
+response, ownership, and redaction behavior is unchanged. The API stack reached
+`UPDATE_COMPLETE` after the authorized code-only deployment.
+
+Validation passed: `npm run check` completed with 64 tests (26 API/shared,
+16 infrastructure, 20 web, 2 Python), typechecks, lint, formatting, and production
+build. `npm run synth --workspace @waste2watt/infra` succeeded. Vite emitted two
+existing upstream Zod annotation warnings but built successfully.
+
+The intended non-root identity was verified. All five CloudFormation stacks are
+in successful states: API/Auth/Data/Pipeline `UPDATE_COMPLETE`, Observability
+`CREATE_COMPLETE`. The Amplify website returned HTTP 200. A fresh read-only CDK
+diff with the deployed origin is now zero for all five stacks. The pre-deployment
+diff contained only the existing API Lambda code asset, with no additions,
+deletions, replacements, IAM changes or unrelated changes.
+
+Live authenticated hosted `GET /scans` requests returned 200 and logged at INFO
+with request IDs `E7HHvissoAMEbGg=` and `E7HMYiZcIAMEb6g=`. One synthetic direct
+invocation of the deployed API Lambda lacking identity returned 401 `UNAUTHORIZED`
+and logged at ERROR with request ID `phase4-logging-unauthorized-probe`. No server
+fault was deliberately induced. The inspected records contain only request ID,
+route, status and safe error code; no credentials, tokens, request bodies or
+exception secrets appeared. Dashboard/history worked; the newly verified user's
+history correctly displayed an empty state. Browser console warnings/errors were
+absent. No new scan or image was created during stabilization.
+
+The existing failure-queue backlog alarm remains ALARM. Read-only diagnostics
+found ten failed executions on 2026-10-08, from 14:09:05 to 16:59:28 IST. Every
+history showed `Phase3NotImplemented` then `AnalysisFailed`; no other failure code,
+timeout or abort appeared in the reviewed execution list. Execution input/output
+was excluded from the final history review. Earlier executions at 15:20–15:36
+overlap integration/hosted testing; those at 16:58–16:59 are consistent with the
+user's testing period. Exact file/user attribution was not attempted.
+
+The pipeline sends a caught failure directly to SQS and also sends the terminal
+execution status via EventBridge to the same queue. Ten failures and twenty
+messages match those two paths; consumers must deduplicate by execution ARN.
+Queue depth grew from 2 to 14 during earlier testing and to 20 around 17:00 IST,
+then stayed at 20 through the reviewed metrics and current attribute read. The
+queue has 20 visible and zero in-flight messages; sent-message metrics total 20
+in the reviewed interval, with no later sends in the available points. Because
+raw queue bodies were not read, per-message attribution remains an inference
+from configuration, histories and aggregate metrics.
+
+The threshold of one visible message keeps the alarm active while placeholder
+analysis fails and the queue has no cleanup consumer. Retention remains fourteen
+days (1,209,600 seconds). No receive, purge, delete, redrive, replay, visibility,
+alarm or retention operation was performed. No unexpected processing failure was
+found in this bounded review. Future design may separate expected failures from
+actionable ones and deduplicate processing; review any change separately. Raising
+the threshold merely to hide the backlog is not proposed. Retention need not
+change for Phase 4 acceptance. Other reviewed alarms were OK, several based on
+missing datapoints treated as non-breaching.
+
+There are no remaining Phase 4 acceptance blockers in the approved scope. The
+alarm is explained rather than cleared. Phase 4 closure does not authorize Phase 5
+or future queue/infrastructure changes.
 
 ## Acceptance results
 

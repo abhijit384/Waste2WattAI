@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { createHandler } from './scans.ts';
 import { runtimeClients, signUpload } from './aws.ts';
+import { createApiLogger } from './logging.ts';
 
 let application: ReturnType<typeof createHandler> | undefined;
 export async function handler(event: APIGatewayProxyEventV2) {
@@ -13,7 +14,7 @@ export async function handler(event: APIGatewayProxyEventV2) {
         repository: clients.repository,
         clientId,
         signUpload: signUpload(clients.s3, clients.bucket),
-        log: (entry) => console.error(JSON.stringify(entry)),
+        log: createApiLogger(),
       });
     }
     return await application(event);
