@@ -6,6 +6,7 @@ import { Brand, EmptyState, ErrorNotice, ScanRows, Skeleton, StatusBadge } from 
 import type { ScanApi } from './api';
 import { uploadImage } from './api';
 import { validateImage } from './file-validation';
+import { AnalysisResult } from './AnalysisResult';
 import { createScanRequestSchema, type WasteScan, type ScanStatus } from '@waste2watt/shared';
 const CognitoForm = lazy(() => import('./AuthenticatorPanel'));
 
@@ -419,10 +420,13 @@ export function History({ api }: { api: ScanApi }) {
             <dt>Updated</dt>
             <dd>{new Date(selected.updatedAt).toLocaleString()}</dd>
           </dl>
+          {selected.status === 'COMPLETED' && <AnalysisResult result={selected.analysis} />}
           <p className="muted">
             {selected.status === 'FAILED'
               ? failureMessage(selected)
-              : 'No AI results are available for this scan yet.'}
+              : selected.status === 'COMPLETED'
+                ? 'Analysis completed; review its evidence and limitations above.'
+                : 'Analysis is pending. No validated result is available yet.'}
           </p>
         </section>
       )}
@@ -430,6 +434,14 @@ export function History({ api }: { api: ScanApi }) {
   );
 }
 export function failureMessage(scan: Pick<WasteScan, 'failureCode'>) {
+  if (scan.failureCode === 'AI_LIMIT_EXCEEDED')
+    return 'The daily AI limit was reached. This scan was not analyzed. Automatic retries are disabled.';
+  if (scan.failureCode === 'INVALID_MODEL_OUTPUT')
+    return 'The model response could not be validated. No analysis result was accepted.';
+  if (scan.failureCode === 'ANALYSIS_UNAVAILABLE')
+    return 'Analysis is unavailable. No result was generated; contact support before requesting another attempt.';
+  if (scan.failureCode === 'INVALID_IMAGE')
+    return 'The uploaded image could not be safely decoded. Use a valid PNG, JPEG or WebP image.';
   return scan.failureCode === 'UPLOAD_REJECTED'
     ? 'The uploaded file did not match the declared image. Create a new scan with a supported image.'
     : scan.failureCode === 'ANALYSIS_NOT_IMPLEMENTED'
@@ -698,7 +710,8 @@ export function ScanPage({ api }: { api: ScanApi }) {
             <span aria-hidden="true">↗</span>
           </button>
           <p className="small muted">
-            AI classification and recovery calculations are not active in this development phase.
+            Results appear only after server validation. Energy and carbon estimates require
+            reviewed conversion factors.
           </p>
         </form>
       </div>
@@ -726,12 +739,12 @@ export function ScanPage({ api }: { api: ScanApi }) {
           {status === 'FAILED' ? (
             <p>{failureMessage(scan ?? {})}</p>
           ) : status === 'COMPLETED' ? (
-            <p>Processing reports completion. This application does not yet render AI results.</p>
+            <AnalysisResult result={scan?.analysis} />
           ) : (
             <p>
               {pollStopped
                 ? 'Status polling paused. Processing may still be pending; refresh or check history. No success is assumed.'
-                : 'Following your scan status. The current analysis workflow is intentionally unimplemented and will report failure.'}
+                : 'Following your scan status. A validated result or an explicit failure will appear here.'}
             </p>
           )}
           {pollStopped && (

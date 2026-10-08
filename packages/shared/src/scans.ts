@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { analysisResultSchema } from './analysis.js';
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const imageTypes = ['image/jpeg', 'image/png', 'image/webp'] as const;
@@ -51,8 +52,17 @@ export const wasteScanSchema = z.object({
   contentType: z.enum(imageTypes).optional(),
   sizeBytes: z.number().int().positive().max(MAX_IMAGE_BYTES).optional(),
   failureCode: z
-    .enum(['ANALYSIS_NOT_IMPLEMENTED', 'UPLOAD_REJECTED', 'PROCESSING_FAILED'])
+    .enum([
+      'ANALYSIS_NOT_IMPLEMENTED',
+      'UPLOAD_REJECTED',
+      'PROCESSING_FAILED',
+      'INVALID_IMAGE',
+      'ANALYSIS_UNAVAILABLE',
+      'INVALID_MODEL_OUTPUT',
+      'AI_LIMIT_EXCEEDED',
+    ])
     .optional(),
+  analysis: analysisResultSchema.optional(),
 });
 export const paginatedScanListSchema = z.object({
   items: z.array(wasteScanSchema),

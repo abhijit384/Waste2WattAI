@@ -76,3 +76,4 @@ export interface AnalysisRequestedEvent {
 }
 
 export * from './scans.js';
+export * from './analysis.js';
