@@ -1,6 +1,16 @@
 # Project verification ledger
 
-Updated 2026-10-08 for the local Phase 6–8 continuation. No AWS resource, account setting, or queue operation was performed in this continuation; Bedrock remains disabled. Phase 4 signup, email confirmation, authentication, mobile upload and history outcomes were user-confirmed in [final acceptance](PHASE4_FINAL_ACCEPTANCE.md).
+Updated 2026-10-09. Historical Phase 6–8 and Phase 4 verification notes follow; the current production deployment and live provider results are recorded first. Phase 4 signup, email confirmation, authentication, mobile upload and history outcomes were user-confirmed in [final acceptance](PHASE4_FINAL_ACCEPTANCE.md).
+
+## 2026-10-09 production deployment and live provider check
+
+STS verified the non-root `waste2watt-developer` identity in account `415150458314`, region `us-east-1`. CloudFormation stacks Data, API, Pipeline and Auth are `UPDATE_COMPLETE`; Observability is `CREATE_COMPLETE`. Amplify job 9 for commit `99226ab68299274f927eb6008a6a68f8533c5b05` succeeded and the HTTPS site returned 200. A fresh synthesis and template diff covered all five stacks with zero differences.
+
+The analysis Lambda is active on Python 3.12/x86_64 with external inference enabled only under free-only safeguards. Paid external usage and Bedrock inference are false; both maximum-cost flags are zero; free-plan confirmations are true; a private Secrets Manager reference is configured. No Bedrock request was made.
+
+One consented CC BY 4.0 Mendeley glass test image, quantity 1 kg, was submitted from the authenticated website. The scan persisted as `FAILED` with `ANALYSIS_UNAVAILABLE`; the workflow marked the scan failed and recorded a failure-queue message. The request was not repeated. Separate recent sanitized CloudWatch telemetry records a schema-validated `gemini-3.5-flash` response with HTTP 200 and 2,254 ms, but the latest test did not produce a result. Provider-specific error details are not retained for that failure. Approximate failure-queue count was 26 visible, 0 delayed and 0 in-flight; the alarm remains `ALARM` at threshold 1, and 5-minute metrics rose from 22 to 24 and then 26. Bodies were not read and no messages were changed. Authenticated history loaded; browser console logs showed no warnings or errors.
+
+The completed `npm run check` for commit `99226ab` passed 147 tests (36 TypeScript, 66 Python, 19 CDK and 26 frontend), as well as typechecks, ESLint, Prettier, Ruff and builds. The only build warning was the existing upstream Zod annotation warning. Bedrock remains blocked by AWS authorization; hosted free-provider reliability is not yet accepted.
 
 The final `npm run check` passed: 35 TypeScript, 33 Python, 18 CDK, and 24 frontend tests (110 total); typechecks, ESLint, Prettier, Ruff, workspace builds, and frontend production build passed. The in-sandbox Vitest attempt was blocked by Windows Vite `EPERM` resolving project realpaths before tests started; the full check was rerun outside the sandbox and passed. Only upstream Zod `@__PURE__` comment-position warnings remain in the production bundle.
 
