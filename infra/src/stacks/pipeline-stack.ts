@@ -7,6 +7,7 @@ import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
@@ -172,6 +173,11 @@ export class Waste2WattPipelineStack extends Stack {
       });
       chain = chain.next(guard.next(markFailed));
     } else {
+      const providerCredentials = new secretsmanager.Secret(this, 'ExternalAiProviderCredentials', {
+        secretName: `waste2watt-${props.config.stage}-external-ai-providers`,
+        description: 'Private API credentials for the approved free-only analysis fallbacks.',
+        removalPolicy: RemovalPolicy.RETAIN,
+      });
       const analysisLogs = new logs.LogGroup(this, 'AnalysisLogs', {
         retention: logs.RetentionDays.ONE_MONTH,
         removalPolicy: RemovalPolicy.RETAIN,
@@ -193,11 +199,35 @@ export class Waste2WattPipelineStack extends Stack {
           AI_INFERENCE_ENABLED: props.config.phase5InferenceEnabled ? 'true' : 'false',
           AI_DAILY_LIMIT: '50',
           AI_USER_DAILY_LIMIT: '5',
+          EXTERNAL_AI_ENABLED: props.config.phase5InferenceEnabled ? 'true' : 'false',
+          EXTERNAL_AI_FREE_ONLY: 'true',
+          EXTERNAL_AI_ALLOW_PAID: 'false',
+          EXTERNAL_AI_PAID_USAGE_ALLOWED: 'false',
+          EXTERNAL_AI_MAX_COST_USD: '0',
+          FREE_MODELS_ONLY: 'true',
+          BEDROCK_INFERENCE_ENABLED: 'false',
+          BEDROCK_INFERENCE_BUDGET_APPROVED: 'false',
+          BEDROCK_INFERENCE_MAX_COST_USD: '0',
+          GEMINI_FREE_TIER_CONFIRMED: props.config.phase5InferenceEnabled ? 'true' : 'false',
+          GEMINI_BILLING_ENABLED: 'false',
+          GROQ_FREE_PLAN_CONFIRMED: props.config.phase5InferenceEnabled ? 'true' : 'false',
+          GROQ_BILLING_ENABLED: 'false',
+          OPENROUTER_FREE_ENDPOINT_CONFIRMED: props.config.phase5InferenceEnabled
+            ? 'true'
+            : 'false',
+          OPENROUTER_BILLING_ENABLED: 'false',
+          EXTERNAL_AI_SECRET_ARN: providerCredentials.secretArn,
           WASTE_SCANS_TABLE: props.data.wasteScans.tableName,
           DAILY_METRICS_TABLE: props.data.dailyMetrics.tableName,
           IMAGE_BUCKET: props.data.imageBucket.bucketName,
         },
       });
+      analysis.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: [providerCredentials.secretArn],
+        }),
+      );
       analysis.addToRolePolicy(
         new iam.PolicyStatement({
           actions: ['bedrock:InvokeModel'],

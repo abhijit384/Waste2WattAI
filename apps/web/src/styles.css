@@ -853,6 +853,23 @@ dd {
   margin: 0;
   color: #b2c9ba;
 }
+.external-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+.external-consent input {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
 .context-panel .small {
   margin: 15px 0 0;
 }

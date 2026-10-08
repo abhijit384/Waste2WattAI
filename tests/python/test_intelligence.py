@@ -1,9 +1,12 @@
 """Offline regression tests; no AWS client is created or inference invoked."""
 
 import io
+import json
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from botocore.exceptions import ClientError
@@ -102,6 +105,12 @@ class IntelligenceTests(unittest.TestCase):
         c = validate(classification(confidenceBand="LOW"))
         self.assertTrue(c["humanReviewRecommended"])
         self.assertEqual(c["outcome"], "LOW_CONFIDENCE")
+        self.assertIsNone(recovery(c)["recommendedPathway"])
+
+    def test_safety_concerns_require_human_review(self):
+        c = validate(classification("GLASS", safetyConcerns=["Sharp broken edges"]))
+        self.assertTrue(c["humanReviewRecommended"])
+        self.assertFalse(recovery(c)["actionable"])
         self.assertIsNone(recovery(c)["recommendedPathway"])
 
     def test_mixed_materials_require_separation(self):
@@ -422,6 +431,56 @@ class IntelligenceTests(unittest.TestCase):
             )
             self.assertEqual(bedrock.converse.call_count, 1)
             self.assertTrue(runtime.task("AnalyzeWithBedrock", event, "retry-test")["ignored"])
+
+    def test_bedrock_denial_falls_back_once_only_with_external_processing_consent(self):
+        runtime, event, record, bedrock, _ = self.workflow()
+        runtime.task("ValidateImage", event, "execution-test")
+        record["externalProcessingConsent"] = True
+        bedrock.converse.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "private-error-detail"}},
+            "Converse",
+        )
+        result = SimpleNamespace(
+            provider="gemini",
+            model_id="gemini-3.6-flash",
+            classification=classification("PLASTIC"),
+            status_code=200,
+            response_time_ms=25,
+        )
+        external = Mock(return_value=result)
+        runtime.external_analyzer = external
+        logged = io.StringIO()
+        with redirect_stdout(logged):
+            self.assertEqual(
+                runtime.task("AnalyzeWithBedrock", event, "execution-test"),
+                {"status": "PROCESSING"},
+            )
+        external.assert_called_once()
+        self.assertIs(external.call_args.args[1], True)
+        self.assertEqual(bedrock.converse.call_count, 1)
+        self.assertEqual(record["pendingModelId"], "gemini-3.6-flash")
+        self.assertEqual(record["pendingModelVersion"], "gemini:gemini-3.6-flash")
+        log = json.loads(logged.getvalue())
+        self.assertEqual(log["event"], "ExternalAiUsage")
+        self.assertEqual(log["provider"], "gemini")
+        self.assertEqual(log["executionArn"], "execution-test")
+        self.assertNotIn("private-error-detail", logged.getvalue())
+
+    def test_external_fallback_does_not_run_without_scan_consent(self):
+        runtime, event, record, bedrock, _ = self.workflow()
+        runtime.task("ValidateImage", event, "execution-test")
+        record["externalProcessingConsent"] = False
+        bedrock.converse.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "private-error-detail"}},
+            "Converse",
+        )
+        external = Mock()
+        runtime.external_analyzer = external
+        with self.assertRaises(AnalysisFailure):
+            runtime.task("AnalyzeWithBedrock", event, "execution-test")
+        external.assert_not_called()
+        self.assertEqual(bedrock.converse.call_count, 1)
+        self.assertEqual(record["failureCode"], "ANALYSIS_UNAVAILABLE")
 
     def test_budget_rejection_never_calls_bedrock(self):
         runtime, event, record, bedrock, dynamo = self.workflow()

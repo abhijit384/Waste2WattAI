@@ -137,7 +137,7 @@ describe('file validation', () => {
   });
 });
 describe('important application states', () => {
-  function prepareUpload(api: ScanApi) {
+  function prepareUpload(api: ScanApi, externalConsent = false) {
     vi.stubGlobal(
       'URL',
       class extends URL {
@@ -163,6 +163,7 @@ describe('important application states', () => {
     fireEvent.change(screen.getByLabelText('Approximate waste quantity'), {
       target: { value: '2.5' },
     });
+    if (externalConsent) fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
   }
   it('uploads then polls the server and renders an honest terminal development failure', async () => {
@@ -181,11 +182,31 @@ describe('important application states', () => {
     prepareUpload(api);
     expect(await screen.findByText(/Your image was received/)).toBeTruthy();
     expect(api.create).toHaveBeenCalledWith(
-      { quantityKg: 2.5, unit: 'kg' },
+      { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: false },
       expect.any(AbortSignal),
     );
     expect(api.get).toHaveBeenCalledTimes(1);
     expect(uploadImage).toHaveBeenCalledTimes(1);
+  });
+  it('sends external image-processing consent only after the user opts in', async () => {
+    const api = stubApi();
+    vi.mocked(uploadImage).mockResolvedValue();
+    vi.mocked(api.get).mockResolvedValue({
+      scanId: '10000000-0000-4000-8000-000000000001',
+      userId: '10000000-0000-4000-8000-000000000002',
+      status: 'FAILED',
+      quantityKg: 2.5,
+      unit: 'kg',
+      createdAt: '2026-10-08T00:00:00.000Z',
+      updatedAt: '2026-10-08T00:00:00.000Z',
+      failureCode: 'ANALYSIS_UNAVAILABLE',
+    });
+    prepareUpload(api, true);
+    await screen.findByText(/Analysis is unavailable/);
+    expect(api.create).toHaveBeenCalledWith(
+      { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: true },
+      expect.any(AbortSignal),
+    );
   });
   it('retains a retryable scan when direct upload fails without starting polling', async () => {
     const api = stubApi();

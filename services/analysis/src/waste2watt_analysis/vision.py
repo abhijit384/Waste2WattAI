@@ -92,4 +92,7 @@ def analyze(client, image, model_id=MODEL_ID):
             "toolChoice": {"tool": {"name": "record_classification"}},
         },
     )
-    return parse_response(response), response.get("usage", {})
+    classification = parse_response(response)
+    if classification["outcome"] in ("INVALID_IMAGE", "ANALYSIS_UNAVAILABLE"):
+        raise AnalysisFailure("INVALID_MODEL_OUTPUT")
+    return classification, response.get("usage", {})

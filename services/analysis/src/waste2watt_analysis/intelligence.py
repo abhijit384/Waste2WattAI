@@ -33,6 +33,8 @@ def validate(value, schema="classification"):
             value = {**value, "outcome": "LOW_CONFIDENCE", "humanReviewRecommended": True}
         if value["outcome"] == "MULTIPLE_MATERIALS":
             value = {**value, "humanReviewRecommended": True}
+        if value["safetyConcerns"]:
+            value = {**value, "humanReviewRecommended": True}
     elif schema == "analysis":
         if validate(value["classification"]) != value["classification"]:
             raise AnalysisFailure("INVALID_MODEL_OUTPUT")

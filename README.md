@@ -11,6 +11,9 @@ constrained uploads and Android acceptance were completed and documented.
 The Phase 5 analysis workflow is deployed with `AI_INFERENCE_ENABLED=false`. Bedrock
 Nova Lite access remains externally blocked (`NOT_AUTHORIZED` / `Operation not allowed`),
 so the site deliberately reports analysis unavailable and does not invent results.
+Third-party AI inference is disabled; only verified free-tier models may be enabled,
+with a hard USD 0 external AI cost policy and explicit external-processing consent.
+See [the zero-cost provider policy](docs/AI_PROVIDER_FREE_ONLY.md).
 The current Dashboard and Digital Twin summarize authenticated records; the scenario
 calculator is a user-entered cited simulation, and the advisor uses deterministic
 read-only prompts. See the [final completion tracker](docs/FINAL_COMPLETION_TRACKER.md)

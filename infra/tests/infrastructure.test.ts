@@ -44,6 +44,12 @@ test('Phase 5 is opt-in, disabled for inference and scopes the model grant witho
         AI_INFERENCE_ENABLED: 'false',
         AI_DAILY_LIMIT: '50',
         AI_USER_DAILY_LIMIT: '5',
+        EXTERNAL_AI_ENABLED: 'false',
+        EXTERNAL_AI_FREE_ONLY: 'true',
+        EXTERNAL_AI_ALLOW_PAID: 'false',
+        EXTERNAL_AI_PAID_USAGE_ALLOWED: 'false',
+        EXTERNAL_AI_MAX_COST_USD: '0',
+        FREE_MODELS_ONLY: 'true',
       }),
     },
   });
@@ -71,6 +77,54 @@ test('Phase 5 is opt-in, disabled for inference and scopes the model grant witho
   assert.ok(!definition.includes('ClassifyWaste'));
   assert.ok(definition.includes('Phase5MarkAnalysisUnavailable'));
   assert.ok(definition.includes('AnalysisUnavailableAsExpected'));
+});
+
+test('free external inference reads only a retained private secret with a zero-cost policy', () => {
+  const reviewApp = new App({ outdir: join(projectRoot, 'infra/cdk.test.out/free-ai') });
+  const reviewed = createStacks(
+    reviewApp,
+    resolveConfig({ phase5Analysis: true, phase5InferenceEnabled: true }),
+  );
+  reviewApp.synth();
+  const proposed = Template.fromStack(reviewed.pipeline);
+  proposed.resourceCountIs('AWS::SecretsManager::Secret', 1);
+  proposed.hasResource('AWS::SecretsManager::Secret', {
+    DeletionPolicy: 'Retain',
+    UpdateReplacePolicy: 'Retain',
+  });
+  for (const secret of Object.values(proposed.findResources('AWS::SecretsManager::Secret'))) {
+    assert.equal(secret.Properties.SecretString, undefined);
+  }
+  proposed.hasResourceProperties('AWS::Lambda::Function', {
+    Runtime: 'python3.12',
+    Environment: {
+      Variables: Match.objectLike({
+        AI_INFERENCE_ENABLED: 'true',
+        EXTERNAL_AI_ENABLED: 'true',
+        EXTERNAL_AI_FREE_ONLY: 'true',
+        EXTERNAL_AI_ALLOW_PAID: 'false',
+        EXTERNAL_AI_PAID_USAGE_ALLOWED: 'false',
+        EXTERNAL_AI_MAX_COST_USD: '0',
+        FREE_MODELS_ONLY: 'true',
+        BEDROCK_INFERENCE_ENABLED: 'false',
+        BEDROCK_INFERENCE_BUDGET_APPROVED: 'false',
+        BEDROCK_INFERENCE_MAX_COST_USD: '0',
+        GEMINI_FREE_TIER_CONFIRMED: 'true',
+        GEMINI_BILLING_ENABLED: 'false',
+        GROQ_FREE_PLAN_CONFIRMED: 'true',
+        GROQ_BILLING_ENABLED: 'false',
+        OPENROUTER_FREE_ENDPOINT_CONFIRMED: 'true',
+        OPENROUTER_BILLING_ENABLED: 'false',
+      }),
+    },
+  });
+  proposed.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({ Action: 'secretsmanager:GetSecretValue', Effect: 'Allow' }),
+      ]),
+    },
+  });
 });
 
 test('development fits low Lambda quotas without reserved or provisioned concurrency', () => {

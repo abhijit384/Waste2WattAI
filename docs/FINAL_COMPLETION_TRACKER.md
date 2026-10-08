@@ -1,6 +1,6 @@
 # Waste2Watt AI completion tracker
 
-Updated: 2026-10-08 22:06 Asia/Kolkata
+Updated: 2026-10-09 Asia/Kolkata
 AWS account: `415150458314` · region: `us-east-1` · profile: `waste2watt-dev` · environment: `dev`
 
 ## Current gate
@@ -39,7 +39,7 @@ The initial safe HealthCheck failure was caused by the missing `typing_extension
 
 ## Local verification baseline
 
-The latest complete `npm run check` passed all workspace typechecks/builds, ESLint, Prettier, Ruff, and 110 tests (35 TypeScript, 33 Python, 18 CDK, 24 frontend). A sandboxed Vite attempt hit `EPERM` before tests; the full check passed outside the sandbox. The production build reports only upstream Zod annotation warnings. Local Phase 6–8 tests use synthetic fixtures except the explicitly documented 989-file dataset training run. Local CDK synthesis passed, and a fresh guarded diff with Phase 5 analysis included, inference disabled, and the exact Amplify origin reported zero differences in Data, Auth, API, Pipeline and Observability. No infrastructure source changed. The reviewed local work is not yet pushed or deployed; the GitHub remote check was blocked by this shell's network DNS restriction.
+The previous zero-cost baseline passed 123 tests. After the model review and sequential-gate changes, the complete `npm run check` passed workspace typechecks/builds, ESLint, Prettier, Ruff, and 129 tests (35 TypeScript, 51 Python, 18 CDK, 25 frontend). Vitest/Vite required local elevated validation access because sandboxed Node `realpathSync.native` returned `EPERM`; the full run then passed. Production build emitted only upstream Zod annotation warnings. Local CDK synthesis passed previously; no infrastructure source changed in this model review. The local Phase 6–8 tests use synthetic fixtures except the explicitly documented 989-file dataset training run. No AWS deployment or model call occurred; prior live deployment history above is unchanged.
 
 ## Safety and cost controls
 
@@ -52,3 +52,9 @@ The latest complete `npm run check` passed all workspace typechecks/builds, ESLi
 ## Next action
 
 The safe disabled-inference workflow is operational and user-accepted. Continue to keep inference disabled until AWS clarifies authorization; the sanitized [Support case draft](PHASE5_BEDROCK_SUPPORT_CASE_DRAFT.md) has no captured request ID and has not been submitted. The local ML baseline is deliberately not deployable at its current score. The frontend-only Phase 6–8 screens are now hosted from commit `bf795603` (Amplify job 6 succeeded); no backend infrastructure changed. Authenticated browser smoke checks showed scan history, dashboard, Digital Twin and deterministic advisor data. A read-only `GET /scans` returned 200 and the two existing scans; no new scan was submitted. Browser console APIs were unavailable in the in-app browser, so console-level acceptance remains unverified. No Phase 6–8 capability is represented as production AI, measured facility performance, or verified sustainability impact.
+
+## Zero-cost external AI update — 2026-10-09
+
+The user requires zero paid external AI usage (`EXTERNAL_AI_PAID_USAGE_ALLOWED=false`, `EXTERNAL_AI_MAX_COST_USD=0`, `FREE_MODELS_ONLY=true`). Current official docs list Gemini 3.6 Flash and 3.5 Flash with image input, structured output and Standard Free Tier token rates, but the account's billing tier and quotas are unverified. Groq Qwen 3.8 27B supports vision and JSON Schema but its Developer tier costs $0.80/M input and $4/M output; the Groq Free-plan entitlement for this account/model is unverified. OpenRouter's exact Dots `:free` model is present at zero prompt/completion prices, has image/schema support, and is listed to expire 2026-12-31; account quota is unverified. xAI Grok remains skipped without free API entitlement.
+
+Local-only changes add real Gemini 3.6, Groq Qwen 3.8 27B, OpenRouter Dots Free, and Gemini 3.5 vision adapters after the separately gated Bedrock primary. They use the shared schema, explicit per-scan external-processing consent, sequential failover, strict zero-price OpenRouter routing, and a backend-only dotenv loader. Remaining quota is not pre-queried. All three provider key names now have non-empty values in ignored `services/analysis/.env.local`; values were never displayed, and no API authentication request was made. The inference switches, free-plan confirmations, and non-billable account settings remain missing, so no real-image smoke test was made. Revoke keys previously exposed in a prompt and ensure these replacements are rotated. All CDK inference flags remain off and no AWS deployment occurred. See [zero-cost provider review](AI_PROVIDER_FREE_ONLY.md).

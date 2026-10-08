@@ -8,6 +8,8 @@ from decimal import Decimal
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from .external_ai_policy import bedrock_inference_allowed, external_ai_enabled
+from .external_config import load_local_provider_environment, load_provider_credentials
 from .intelligence import CATALOG_VERSION, AnalysisFailure, impact, recovery, validate
 from .vision import MAX_IMAGE_BYTES, MODEL_ID, analyze, preprocess
 
@@ -58,10 +60,14 @@ class AnalysisRuntime:
         enabled=False,
         daily_limit=50,
         user_limit=5,
+        external_analyzer=None,
+        bedrock_enabled=True,
     ):
         self.scans, self.metrics, self.dynamodb = scans, metrics, dynamodb
         self.s3, self.bedrock, self.bucket = s3, bedrock, bucket
         self.enabled, self.daily_limit, self.user_limit = enabled, daily_limit, user_limit
+        self.external_analyzer = external_analyzer
+        self.bedrock_enabled = bedrock_enabled
         if (
             any(
                 isinstance(limit, bool) or not isinstance(limit, int) or limit < 1
@@ -178,21 +184,75 @@ class AnalysisRuntime:
                     self.reserve(key, execution, now)
                 except self.dynamodb.exceptions.TransactionCanceledException:
                     raise AnalysisFailure("AI_LIMIT_EXCEEDED") from None
-                classification, usage = analyze(self.bedrock, self.image(event, scan, object_key))
-                self.update(
-                    key, execution, "SET pendingClassification = :c", {}, {":c": classification}
-                )
-                # No image, model text, user identity or provider exception is logged.
-                print(
-                    json.dumps(
-                        {
-                            "event": "BedrockUsage",
-                            "executionArn": execution,
-                            "inputTokens": usage.get("inputTokens", 0),
-                            "outputTokens": usage.get("outputTokens", 0),
-                        }
+                clean_image = self.image(event, scan, object_key)
+                selected_model = MODEL_ID
+                selected_provider = "bedrock"
+                usage = {}
+                classification = None
+                bedrock_failure_code = None
+                if self.bedrock_enabled and self.bedrock is not None:
+                    try:
+                        classification, usage = analyze(self.bedrock, clean_image)
+                    except AnalysisFailure as failure:
+                        bedrock_failure_code = str(failure)
+                    except Exception:
+                        # One Bedrock attempt only. A denied or failed call proceeds
+                        # to the independently gated free-provider sequence below.
+                        classification = None
+                if classification is None:
+                    if (
+                        self.external_analyzer is None
+                        or scan.get("externalProcessingConsent") is not True
+                    ):
+                        if bedrock_failure_code == "INVALID_MODEL_OUTPUT":
+                            raise AnalysisFailure(bedrock_failure_code)
+                        raise AnalysisFailure("ANALYSIS_UNAVAILABLE")
+                    external_result = self.external_analyzer(clean_image, True)
+                    if external_result is None:
+                        raise AnalysisFailure("ANALYSIS_UNAVAILABLE")
+                    classification = validate(external_result.classification)
+                    selected_model = external_result.model_id
+                    selected_provider = external_result.provider
+                    print(
+                        json.dumps(
+                            {
+                                "event": "ExternalAiUsage",
+                                "executionArn": execution,
+                                "provider": selected_provider,
+                                "modelId": selected_model,
+                                "httpStatus": external_result.status_code,
+                                "responseTimeMs": external_result.response_time_ms,
+                            }
+                        )
                     )
+                else:
+                    print(
+                        json.dumps(
+                            {
+                                "event": "BedrockUsage",
+                                "executionArn": execution,
+                                "inputTokens": usage.get("inputTokens", 0),
+                                "outputTokens": usage.get("outputTokens", 0),
+                            }
+                        )
+                    )
+                self.update(
+                    key,
+                    execution,
+                    "SET pendingClassification = :c, pendingModelId = :model, "
+                    "pendingModelVersion = :version",
+                    {},
+                    {
+                        ":c": classification,
+                        ":model": selected_model,
+                        ":version": (
+                            selected_model
+                            if selected_provider == "bedrock"
+                            else f"{selected_provider}:{selected_model}"
+                        ),
+                    },
                 )
+                # No image, model text, user identity, or provider exception is logged.
             elif action == "ValidateClassification":
                 validate(scan["pendingClassification"])
             elif action == "EvaluateRecoveryPathways":
@@ -217,8 +277,8 @@ class AnalysisRuntime:
                         "classification": scan["pendingClassification"],
                         "recovery": scan["pendingRecovery"],
                         "impact": scan["pendingImpact"],
-                        "modelId": MODEL_ID,
-                        "modelVersion": MODEL_ID,
+                        "modelId": scan["pendingModelId"],
+                        "modelVersion": scan["pendingModelVersion"],
                         "processedAt": now,
                         "quantityKg": float(scan["quantityKg"]),
                         "factorCatalogVersion": CATALOG_VERSION,
@@ -240,7 +300,8 @@ class AnalysisRuntime:
                     key,
                     execution,
                     "SET #status = :complete, updatedAt = :now "
-                    "REMOVE pendingClassification, pendingRecovery, pendingImpact",
+                    "REMOVE pendingClassification, pendingRecovery, pendingImpact, "
+                    "pendingModelId, pendingModelVersion",
                     {},
                     {":complete": "COMPLETED", ":now": now},
                 )
@@ -286,6 +347,7 @@ def handler(event, context):
             "status": "READY",
             "inferenceEnabled": os.environ.get("AI_INFERENCE_ENABLED") == "true",
         }
+    load_local_provider_environment()
     # Gate precedes client construction, even when invoked accidentally.
     if os.environ.get("AI_INFERENCE_ENABLED") != "true":
         raise AnalysisFailure("ANALYSIS_UNAVAILABLE")
@@ -293,18 +355,45 @@ def handler(event, context):
         import boto3
         from botocore.config import Config
 
+        from .external_vision import analyze_with_free_providers
+
         config = Config(connect_timeout=3, read_timeout=25, retries={"total_max_attempts": 1})
         session = boto3.Session(region_name="us-east-1")
+        bedrock_enabled = bedrock_inference_allowed(os.environ)
+        external_enabled = external_ai_enabled(os.environ)
+        provider_environment = dict(os.environ)
+        secret_id = os.environ.get("EXTERNAL_AI_SECRET_ARN")
+        if external_enabled and secret_id:
+            secrets_config = Config(
+                connect_timeout=3,
+                read_timeout=5,
+                retries={"total_max_attempts": 1},
+            )
+            provider_environment.update(
+                load_provider_credentials(
+                    session.client("secretsmanager", config=secrets_config), secret_id
+                )
+            )
         _runtime = AnalysisRuntime(
             session.resource("dynamodb", config=config).Table(os.environ["WASTE_SCANS_TABLE"]),
             os.environ["DAILY_METRICS_TABLE"],
             session.client("dynamodb", config=config),
             session.client("s3", config=config),
-            session.client("bedrock-runtime", config=config),
+            session.client("bedrock-runtime", config=config) if bedrock_enabled else None,
             os.environ["IMAGE_BUCKET"],
             True,
             int(os.environ.get("AI_DAILY_LIMIT", "50")),
             int(os.environ.get("AI_USER_DAILY_LIMIT", "5")),
+            (
+                lambda image, consent: analyze_with_free_providers(
+                    image,
+                    provider_environment,
+                    external_processing_consent=consent,
+                )
+                if external_enabled
+                else None
+            ),
+            bedrock_enabled,
         )
     try:
         return _runtime.task(event["action"], event["event"], event["executionArn"])

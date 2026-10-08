@@ -264,9 +264,25 @@ test('create persists owned secure ID, timestamps, index key and CREATED status'
   assert.equal(response.statusCode, 201);
   assert.deepEqual(JSON.parse(response.body!), { scanId, status: 'CREATED' });
   assert.equal(f.rows.get(`${owner}:${scanId}`)?.userId, owner);
+  assert.equal(f.rows.get(`${owner}:${scanId}`)?.externalProcessingConsent, false);
   assert.equal(f.rows.get(`${owner}:${scanId}`)?.createdAtScanId, `${now}#${scanId}`);
   assert.deepEqual(f.logs, [{ requestId: 'test-request', route: 'POST /scans', statusCode: 201 }]);
   assert.ok(!JSON.stringify(f.logs).includes('Private facility name'));
+});
+test('external image processing consent defaults off and persists only explicit opt-in', async () => {
+  const denied = fixture();
+  await denied.handler(event('POST /scans', { quantityKg: 1, unit: 'kg' }));
+  assert.equal(denied.rows.get(`${owner}:${scanId}`)?.externalProcessingConsent, false);
+
+  const allowed = fixture();
+  await allowed.handler(
+    event('POST /scans', {
+      quantityKg: 1,
+      unit: 'kg',
+      externalProcessingConsent: true,
+    }),
+  );
+  assert.equal(allowed.rows.get(`${owner}:${scanId}`)?.externalProcessingConsent, true);
 });
 test('rejects body user/org identity and invalid quantities/units', async () => {
   for (const body of [

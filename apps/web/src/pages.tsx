@@ -840,6 +840,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
   const [preview, setPreview] = useState('');
   const [quantity, setQuantity] = useState('');
   const [source, setSource] = useState('');
+  const [externalProcessingConsent, setExternalProcessingConsent] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [scan, setScan] = useState<WasteScan | null>(null);
@@ -874,6 +875,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
     setScan(null);
     setScanId('');
     setPollStopped(false);
+    setExternalProcessingConsent(false);
   };
   useEffect(() => {
     if (!scanId || !polling) return;
@@ -925,6 +927,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
     const input = createScanRequestSchema.safeParse({
       quantityKg: Number(quantity),
       unit: 'kg',
+      externalProcessingConsent,
       ...(source.trim() ? { sourceLabel: source.trim() } : {}),
     });
     if (!input.success) {
@@ -1085,8 +1088,21 @@ export function ScanPage({ api }: { api: ScanApi }) {
           />
           <div className="privacy-note">
             <span className="live-dot" />
-            <p>Your image stays private. Your account owns this scan.</p>
+            <p>Your image is stored privately. Your account owns this scan.</p>
           </div>
+          <label className="external-consent">
+            <input
+              type="checkbox"
+              checked={externalProcessingConsent}
+              disabled={locked || Boolean(scanId)}
+              onChange={(event) => setExternalProcessingConsent(event.target.checked)}
+            />
+            <span>
+              Allow external free-tier AI processing if needed. A compressed image may be sent to
+              Google Gemini, Groq, or OpenRouter under their privacy policies. It will not be sent
+              to these providers unless you check this box.
+            </span>
+          </label>
           {error && <ErrorNotice message={error} />}
           <button className="button primary full-width" disabled={!file || locked} type="submit">
             {busy

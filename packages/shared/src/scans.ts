@@ -22,6 +22,7 @@ export const createScanRequestSchema = z
     quantityKg: z.number().finite().positive().max(1_000_000),
     unit: z.literal('kg'),
     sourceLabel: z.string().trim().min(1).max(80).optional(),
+    externalProcessingConsent: z.boolean().default(false),
   })
   .strict();
 export const createScanResponseSchema = z.object({
@@ -49,6 +50,7 @@ export const wasteScanSchema = z.object({
   quantityKg: z.number().positive(),
   unit: z.literal('kg'),
   sourceLabel: z.string().max(80).optional(),
+  externalProcessingConsent: z.boolean().optional(),
   contentType: z.enum(imageTypes).optional(),
   sizeBytes: z.number().int().positive().max(MAX_IMAGE_BYTES).optional(),
   failureCode: z
