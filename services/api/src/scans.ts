@@ -7,6 +7,7 @@ import type {
 import { z } from 'zod';
 import {
   createScanRequestSchema,
+  cognitoSubjectSchema,
   uploadRequestSchema,
   wasteScanSchema,
   type WasteScan,
@@ -48,7 +49,7 @@ export class HttpError extends Error {
 export function extractIdentity(event: APIGatewayProxyEventV2, clientId: string) {
   const claims = (event as APIGatewayProxyEventV2WithJWTAuthorizer).requestContext.authorizer?.jwt
     ?.claims;
-  const sub = z.uuid().safeParse(claims?.sub);
+  const sub = cognitoSubjectSchema.safeParse(claims?.sub);
   if (
     !sub.success ||
     claims?.token_use !== 'access' ||

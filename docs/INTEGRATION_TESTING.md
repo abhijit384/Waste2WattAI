@@ -1,12 +1,25 @@
 # Real integration verification
 
+Phase 4 browser acceptance initially found a real tester's history/upload requests failing
+with "Please sign in again." because strict RFC UUID validation rejects their
+Cognito subject. The approved API/status fix and branded email template are now
+deployed; see [limited update results](PHASE4_LIMITED_UPDATE.md). Public browser
+checks pass; 15 real authenticated browser checks now pass for the affected user,
+including JPEG upload, owned history and rejection of another real user's scan. See
+[hosting readiness](PHASE4_HOSTING_READINESS.md) for the current matrix, prepared
+Lambda/email changes and Amplify approval gate. The SDK evidence below predates
+this finding and must not be treated as proof that all Cognito users work.
+
 The authorized first development deployment completed on 2026-10-08; all five
 stacks are CREATE_COMPLETE. STS verified the exact non-root waste2watt-developer
 IAM user in account 415150458314. Dev concurrency is 10.
 Live SDK tests passed email confirmation/recovery, SRP sign-in/out, authorization,
 owned scans, foreign-owner fixture isolation, constrained PNG upload and genuine
 S3/EventBridge/Step Functions failure persistence. See PHASE4_FIRST_DEPLOYMENT.md.
-Browser UI/cookie flows, a second real user, JPEG/WebP and hosting remain pending.
+The user confirmed normal history hard-refresh, PNG/WebP uploads, context/progress,
+failure/history display, signup/verification, logout/login, recovery/reset,
+keyboard navigation and narrow signed-in layouts work. Actual phone capture and
+hosted-domain acceptance are deferred. See [final acceptance](PHASE4_FINAL_ACCEPTANCE.md).
 The full browser checklist below remains an acceptance plan. Matrix results record
 live SDK/request checks where performed, with fixture and pattern-scan limitations
 stated. They do not claim completed browser tests.
@@ -61,8 +74,8 @@ tokens only in process memory; keep those tests pending until performed.
 | ------------------------- | --------------------------------------------------------- | --------------------------------------- | -------------------------------------- |
 | Anonymous API             | GET /scans, remove Authorization                          | 401                                     | Pass 401                               |
 | Invalid JWT               | GET /scans, Bearer invalid-test-token                     | 401                                     | Pass 401                               |
-| Foreign get               | A GET /scans/{B-id}                                       | 404, same as missing ID                 | Pass foreign fixture; real B pending   |
-| Foreign upload            | A POST /scans/{B-id}/upload-url, valid body               | 404, no policy                          | Pass foreign fixture; real B pending   |
+| Foreign get               | A GET /scans/{B-id}                                       | 404, same as missing ID                 | Pass 404 against another real user     |
+| Foreign upload            | A POST /scans/{B-id}/upload-url, valid body               | 404, no policy                          | Pass 404 against another real user     |
 | Unsupported MIME          | Own CREATED scan, upload-url image/gif                    | 400                                     | Pass 400                               |
 | Too large                 | Own CREATED scan, upload-url sizeBytes 10485761           | 400, no policy                          | Pass 400                               |
 | API key injection         | Add objectKey/key/ownerId to upload-url JSON              | 400                                     | Pass 400                               |

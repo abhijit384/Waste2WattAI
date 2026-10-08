@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cognitoSubjectSchema } from '@waste2watt/shared';
 import type { ScanRepository } from './scans.ts';
 
 export const imageEventSchema = z.object({
@@ -26,7 +27,7 @@ export function createStatusHandler(deps: {
       /^private\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})\.(jpg|png|webp)$/.exec(key);
     if (event.detail.bucket.name !== deps.bucket || !match)
       throw new Error('Unrecognized image event');
-    const ownerId = z.uuid().parse(match[1]);
+    const ownerId = cognitoSubjectSchema.parse(match[1]);
     const scanId = z.uuid().parse(match[2]);
     const scan = await deps.repository.get(ownerId, scanId);
     if (!scan || scan.ownerId !== ownerId || scan.userId !== ownerId || scan.objectKey !== key)

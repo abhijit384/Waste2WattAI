@@ -10,9 +10,18 @@ CDKToolkit bootstrap completed with termination protection and version 32.
 Development reservations are removed for the concurrency quota of 10.
 All five dev application stacks reached CREATE_COMPLETE; the final diff has no changes.
 Live sign-in, owned scan/upload and expected unfinished-analysis failure checks passed.
-Local frontend configuration was generated; browser acceptance checks remain.
+Local frontend configuration was generated; Phase 4 manual desktop acceptance passed.
 See docs/PHASE4_FIRST_DEPLOYMENT.md and docs/INTEGRATION_TESTING.md.
 Previous accounts are forbidden. Amplify Hosting awaits separate review and approval.
+Phase 4 browser acceptance found a Cognito subject-validation bug blocking some
+real users. The explicitly approved API/status fixes and branded verification-email
+template are deployed; 15 real authenticated browser checks passed, including a
+non-RFC Cognito subject, JPEG upload, foreign-user rejection and owned history.
+See [limited update results](docs/PHASE4_LIMITED_UPDATE.md).
+Amplify build settings are prepared for deployment review; actual phone capture
+and hosted-domain acceptance remain deferred until approved HTTPS hosting.
+See [final acceptance results](docs/PHASE4_FINAL_ACCEPTANCE.md).
+See [hosting readiness and manual test results](docs/PHASE4_HOSTING_READINESS.md).
 AI analysis intentionally fails
 until implemented; no classifications, recovery factors, or sustainability
 estimates are fabricated.

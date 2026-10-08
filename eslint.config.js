@@ -15,6 +15,7 @@ export default tseslint.config(
       '.tools/**',
       '.browser-profile/**',
       '.deployment/**',
+      '.tmp/**',
     ],
   },
   js.configs.recommended,

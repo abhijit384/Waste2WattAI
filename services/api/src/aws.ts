@@ -9,11 +9,11 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
-import { type UploadRequest, type WasteScan } from '@waste2watt/shared';
+import { cognitoSubjectSchema, type UploadRequest, type WasteScan } from '@waste2watt/shared';
 import { HttpError, type ScanRecord, type ScanRepository } from './scans.ts';
 
 const cursorSchema = z
-  .object({ ownerId: z.uuid(), scanId: z.uuid(), createdAtScanId: z.string().max(100) })
+  .object({ ownerId: cognitoSubjectSchema, scanId: z.uuid(), createdAtScanId: z.string().max(100) })
   .strict();
 export class DynamoScanRepository implements ScanRepository {
   readonly client: DynamoDBDocumentClient;

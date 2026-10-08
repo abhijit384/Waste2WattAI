@@ -599,7 +599,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
                 disabled={locked}
                 onClick={() => camera.current?.click()}
               >
-                Use Camera
+                Take Photo / Choose Image
               </button>
               <button
                 className="button secondary"
@@ -642,7 +642,8 @@ export function ScanPage({ api }: { api: ScanApi }) {
             <span>Private S3 storage</span>
           </div>
           <p className="muted small">
-            Camera capture depends on your device and browser. Choosing an image always works.
+            On compatible phones, take a photo with your camera. Desktop browsers open an image
+            picker. Camera options depend on your device and browser.
           </p>
         </section>
         <form
@@ -787,7 +788,7 @@ export function FuturePage({
           <div />
         </div>
         <div className="future-copy">
-          <span className="status-badge">PLANNED / PHASE 4</span>
+          <span className="status-badge">PLANNED / PHASE 5</span>
           <h2>A thoughtful next layer.</h2>
           <p>
             This workspace is reserved for verified analysis and evidence-led decisions. No model is

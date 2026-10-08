@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { frontendEnvironment } from '../scripts/configure-frontend.mjs';
+import { validateHostingConfig } from '../scripts/validate-hosting-config.mjs';
 
 const outputs = {
   'Waste2WattAuthStack-dev': {
@@ -27,4 +28,28 @@ test('frontend output conversion rejects missing, injected and unexpected-region
   ]) {
     assert.throws(() => frontendEnvironment({ ...outputs, 'Waste2WattApiStack-dev': { ApiUrl } }));
   }
+});
+
+test('hosting rejects missing configuration, wrong app root, non-target endpoints and extra public fields', () => {
+  const env = Object.fromEntries(
+    frontendEnvironment(outputs)
+      .trim()
+      .split('\n')
+      .map((line) => line.split('=')),
+  );
+  const valid = { ...env, AMPLIFY_MONOREPO_APP_ROOT: 'apps/web' };
+  assert.doesNotThrow(() => validateHostingConfig(valid));
+  for (const invalid of [
+    {},
+    { ...valid, AMPLIFY_MONOREPO_APP_ROOT: 'apps/api' },
+    { ...valid, VITE_API_URL: 'https://example.com' },
+    { ...valid, VITE_AWS_REGION: 'us-west-2' },
+    { ...valid, VITE_SECRET: 'test-only-must-not-be-published' },
+  ])
+    assert.throws(() => validateHostingConfig(invalid));
+  assert.throws(
+    () => validateHostingConfig({ ...valid, VITE_SECRET: 'test-only-must-not-be-published' }),
+    (error: unknown) =>
+      error instanceof Error && !error.message.includes('test-only-must-not-be-published'),
+  );
 });

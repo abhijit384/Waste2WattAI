@@ -11,7 +11,7 @@ import {
 } from '../services/api/src/scans.ts';
 import { DynamoScanRepository, signUpload } from '../services/api/src/aws.ts';
 import { createStatusHandler } from '../services/api/src/status.ts';
-import { MAX_IMAGE_BYTES } from '@waste2watt/shared';
+import { cognitoSubjectSchema, wasteScanSchema, MAX_IMAGE_BYTES } from '@waste2watt/shared';
 const owner = '10000000-0000-4000-8000-000000000001',
   other = '10000000-0000-4000-8000-000000000002',
   scanId = '10000000-0000-4000-8000-000000000003',
@@ -94,6 +94,77 @@ function fixture() {
 }
 test('extracts Cognito identity from trusted access claims', () =>
   assert.equal(extractIdentity(event('GET /scans'), 'test-client').userId, owner));
+
+test('Cognito subjects accept non-RFC variant bits while malformed subjects stay rejected', async () => {
+  const cognitoOwner = '10000000-0000-7000-0000-000000000001';
+  assert.equal(cognitoSubjectSchema.parse(cognitoOwner), cognitoOwner);
+  assert.equal(
+    extractIdentity(event('GET /scans', undefined, cognitoOwner), 'test-client').userId,
+    cognitoOwner,
+  );
+  assert.equal(wasteScanSchema.parse({ ...record(), userId: cognitoOwner }).userId, cognitoOwner);
+  for (const invalid of [
+    'invalid',
+    '../' + cognitoOwner,
+    cognitoOwner.replace('-', ''),
+    cognitoOwner + '/key',
+  ])
+    assert.equal(cognitoSubjectSchema.safeParse(invalid).success, false);
+  const f = fixture();
+  assert.equal(
+    (await f.handler(event('POST /scans', { quantityKg: 1, unit: 'kg' }, cognitoOwner))).statusCode,
+    201,
+  );
+  assert.equal((await f.handler(event('GET /scans', undefined, cognitoOwner))).statusCode, 200);
+  assert.equal((await f.handler(event('GET /scans/{scanId}', undefined, owner))).statusCode, 404);
+});
+
+test('pagination accepts non-RFC Cognito owner GUIDs and rejects a different owner', async () => {
+  const cognitoOwner = '10000000-0000-7000-0000-000000000001';
+  let calls = 0;
+  const client = {
+    send: async () => {
+      calls++;
+      return { Items: [] };
+    },
+  } as unknown as DynamoDBDocumentClient;
+  const repository = new DynamoScanRepository(client, 'TestOnlyTable');
+  const cursor = Buffer.from(
+    JSON.stringify({ ownerId: cognitoOwner, scanId, createdAtScanId: `${now}#${scanId}` }),
+  ).toString('base64url');
+  await repository.list(cognitoOwner, 12, cursor);
+  await assert.rejects(repository.list(owner, 12, cursor));
+  assert.equal(calls, 1);
+});
+
+test('pipeline status persistence accepts a non-RFC Cognito subject', async () => {
+  const cognitoOwner = '10000000-0000-7000-0000-000000000001';
+  const key = objectKey.replace(owner, cognitoOwner);
+  const f = fixture();
+  const scan: ScanRecord = {
+    ...record(),
+    ownerId: cognitoOwner,
+    userId: cognitoOwner,
+    status: 'UPLOADING',
+    objectKey: key,
+    contentType: 'image/png',
+    sizeBytes: 10,
+  };
+  f.rows.set(`${cognitoOwner}:${scanId}`, scan);
+  const handler = createStatusHandler({
+    repository: f.repository,
+    bucket: 'test-only-bucket',
+    head: async () => ({ contentType: 'image/png', sizeBytes: 10 }),
+  });
+  await handler({ action: 'uploaded', event: imageEvent(key) });
+  await handler({
+    action: 'failed',
+    event: imageEvent(key),
+    failure: { Error: 'Phase3NotImplemented' },
+  });
+  assert.equal(scan.status, 'FAILED');
+  assert.equal(scan.failureCode, 'ANALYSIS_NOT_IMPLEMENTED');
+});
 test('rejects absent claims, ID token, wrong client, invalid sub and missing scope', async () => {
   const f = fixture();
   assert.equal(

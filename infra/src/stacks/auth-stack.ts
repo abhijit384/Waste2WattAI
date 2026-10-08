@@ -21,6 +21,15 @@ export class Waste2WattAuthStack extends Stack {
       signInAliases: { email: true },
       signInCaseSensitive: false,
       autoVerify: { email: true },
+      userVerification: {
+        emailStyle: cognito.VerificationEmailStyle.CODE,
+        emailSubject: 'Waste2Watt AI - your verification code',
+        emailBody:
+          'Your Waste2Watt AI verification code is {####}. ' +
+          'Enter this code in the Waste2Watt AI page where you requested it. ' +
+          'Never share this code or your password. ' +
+          'If you did not request this code, you can ignore this email.',
+      },
       standardAttributes: { email: { required: true, mutable: true } },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       mfa: props.config.stage === 'prod' ? cognito.Mfa.REQUIRED : cognito.Mfa.OPTIONAL,

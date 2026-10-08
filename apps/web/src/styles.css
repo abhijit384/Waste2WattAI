@@ -1010,6 +1010,12 @@ progress {
 .auth-panel .amplify-button--link {
   color: var(--green);
 }
+.auth-panel [role='tab'][aria-selected='false'] {
+  color: #b0bdb5;
+}
+.auth-panel .amplify-field__show-password {
+  color: #c7d8cc;
+}
 .configuration-shell,
 .fatal-error,
 .session-loading {

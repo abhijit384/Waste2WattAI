@@ -112,6 +112,11 @@ test('Cognito web client uses code flow, no secret, and an API access scope', ()
     DeletionProtection: 'ACTIVE',
     UsernameAttributes: ['email'],
     Policies: { PasswordPolicy: Match.objectLike({ MinimumLength: 12 }) },
+    VerificationMessageTemplate: Match.objectLike({
+      DefaultEmailOption: 'CONFIRM_WITH_CODE',
+      EmailSubject: 'Waste2Watt AI - your verification code',
+      EmailMessage: Match.stringLikeRegexp('Waste2Watt AI.*\\{####\\}'),
+    }),
   });
   auth.hasResourceProperties('AWS::Cognito::UserPoolClient', {
     GenerateSecret: false,

@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const imageTypes = ['image/jpeg', 'image/png', 'image/webp'] as const;
+// Cognito subjects have a GUID shape but do not promise RFC UUID version/variant bits.
+// Ownership still comes exclusively from API Gateway's validated access-token claims.
+export const cognitoSubjectSchema = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 export const scanStatusSchema = z.enum([
   'CREATED',
   'UPLOADING',
@@ -35,7 +40,7 @@ export const uploadResponseSchema = z.object({
 });
 export const wasteScanSchema = z.object({
   scanId: z.uuid(),
-  userId: z.uuid(),
+  userId: cognitoSubjectSchema,
   organizationId: z.string().max(128).optional(),
   status: scanStatusSchema,
   createdAt: z.iso.datetime(),
