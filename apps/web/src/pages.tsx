@@ -1188,11 +1188,19 @@ export function Settings() {
     setFirstName(auth.profile?.firstName ?? '');
   }, [auth.profile?.firstName]);
 
-  const supportUrl = new URL('https://github.com/abhijit384/Waste2WattAI/issues/new');
-  supportUrl.searchParams.set('title', 'Waste2Watt AI account support request');
-  supportUrl.searchParams.set(
-    'body',
+  const createSupportUrl = (title: string, body: string) => {
+    const url = new URL('https://github.com/abhijit384/Waste2WattAI/issues/new');
+    url.searchParams.set('title', title);
+    url.searchParams.set('body', body);
+    return url.toString();
+  };
+  const supportUrl = createSupportUrl(
+    'Waste2Watt AI account support request',
     'Please describe the account or data issue. Do not include passwords, authentication codes, API keys, or uploaded images.',
+  );
+  const deletionUrl = createSupportUrl(
+    'Request deletion of my Waste2Watt AI account and data',
+    'I am requesting deletion of my Waste2Watt AI account and its associated scan records and private images. Please confirm the request before taking action. Do not include passwords, verification codes, API keys, or image files.',
   );
 
   return (
@@ -1288,12 +1296,7 @@ export function Settings() {
             >
               Sign out
             </button>
-            <a
-              className="button danger-link"
-              href={supportUrl.toString()}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a className="button danger-link" href={deletionUrl} target="_blank" rel="noreferrer">
               Request account deletion
             </a>
           </div>
@@ -1347,12 +1350,7 @@ export function Settings() {
               Contact the Waste2Watt project support team for account and data requests.
             </p>
           </div>
-          <a
-            className="button secondary"
-            href={supportUrl.toString()}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="button secondary" href={supportUrl} target="_blank" rel="noreferrer">
             Contact customer care ↗
           </a>
         </div>

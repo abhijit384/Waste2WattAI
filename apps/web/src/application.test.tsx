@@ -149,7 +149,8 @@ describe('account profile', () => {
     expect(profileFromAttributes({ email: 'maya@example.com' }).emailVerified).toBeUndefined();
   });
 
-  it('shows profile details, account actions, FAQs, and customer-care access', () => {
+  it('shows profile details, account actions, FAQs, and customer-care access', async () => {
+    const updateFirstName = vi.fn().mockResolvedValue(undefined);
     render(
       <MemoryRouter>
         <AuthContext.Provider
@@ -158,7 +159,7 @@ describe('account profile', () => {
             userId: 'private-subject-id',
             profile: { firstName: 'Asha', email: 'asha@example.com', emailVerified: true },
             signOut: async () => {},
-            updateFirstName: async () => {},
+            updateFirstName,
           }}
         >
           <Settings />
@@ -171,7 +172,15 @@ describe('account profile', () => {
     expect(screen.getByRole('link', { name: 'Request account deletion' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Contact customer care/ })).toBeTruthy();
     expect(screen.getByText('Frequently asked questions')).toBeTruthy();
+    expect((screen.getByLabelText('First name') as HTMLInputElement).value).toBe('Asha');
+    expect(
+      screen.getByRole('link', { name: 'Request account deletion' }).getAttribute('href'),
+    ).toContain('Request+deletion+of+my+Waste2Watt+AI+account+and+data');
     expect(screen.queryByText('private-subject-id')).toBeNull();
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Asha Devi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+    expect(await screen.findByText('First name saved.')).toBeTruthy();
+    expect(updateFirstName).toHaveBeenCalledWith('Asha Devi');
   });
 });
 describe('file validation', () => {
