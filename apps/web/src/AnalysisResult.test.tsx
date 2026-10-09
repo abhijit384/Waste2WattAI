@@ -6,7 +6,10 @@ import { failureMessage } from './pages';
 afterEach(cleanup);
 it('renders unavailable analysis honestly', () => {
   render(<AnalysisResult result={undefined} />);
-  expect(screen.getByText('No validated analysis result is available.')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Analysis unavailable' })).toBeTruthy();
+  expect(
+    screen.getByText(/No category, sorting decision, or recovery estimate has been inferred/),
+  ).toBeTruthy();
 });
 it('renders qualitative evidence, user mass, unknown factors and human review', () => {
   const result = analysisResultSchema.parse({
@@ -48,12 +51,30 @@ it('renders qualitative evidence, user mass, unknown factors and human review', 
     factorCatalogVersion: '2026-10-08.1',
   });
   render(<AnalysisResult result={result} />);
-  expect(screen.getByText('LOW — qualitative, not a calibrated probability')).toBeTruthy();
-  expect(screen.getByText('2 kg, approximate')).toBeTruthy();
-  expect(screen.getByText('Human review recommended.')).toBeTruthy();
+  expect(screen.getByText('low confidence')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Evidence & handling' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Sorting & recovery' })).toBeTruthy();
   expect(
-    screen.getByText('Estimate unavailable — verified conversion factor required.'),
-  ).toBeTruthy();
+    screen.getByText('RECORDED QUANTITY').parentElement?.querySelector('strong')?.textContent,
+  ).toBe('2 kg');
+  expect(screen.getByText(/USER-PROVIDED · APPROXIMATE/)).toBeTruthy();
+  expect(screen.getByText(/Human review recommended before sorting/)).toBeTruthy();
+  expect(screen.getByText('A verified conversion factor is required.')).toBeTruthy();
+  expect(screen.getByText(/not a calibrated probability/)).toBeTruthy();
+
+  cleanup();
+  const unavailable = analysisResultSchema.parse({
+    ...result,
+    classification: {
+      ...result.classification,
+      outcome: 'ANALYSIS_UNAVAILABLE',
+      primaryCategory: null,
+      otherMaterials: [],
+    },
+  });
+  render(<AnalysisResult result={unavailable} />);
+  expect(screen.getByRole('heading', { name: 'Analysis unavailable' })).toBeTruthy();
+  expect(screen.queryByText('Mixed')).toBeNull();
 });
 it('describes explicit provider, validation and budget failures without automatic paid retries', () => {
   expect(failureMessage({ failureCode: 'AI_LIMIT_EXCEEDED' })).toContain(

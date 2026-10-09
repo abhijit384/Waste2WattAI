@@ -15,6 +15,7 @@ import type { ScanApi } from './api';
 import { uploadImage } from './api';
 import { validateImage } from './file-validation';
 import { AnalysisResult } from './AnalysisResult';
+import { AnalysisLoading } from './AnalysisLoading';
 import {
   createScanRequestSchema,
   deriveOwnerAnalytics,
@@ -826,7 +827,7 @@ export function failureMessage(scan: Pick<WasteScan, 'failureCode'>) {
   if (scan.failureCode === 'INVALID_MODEL_OUTPUT')
     return 'The model response could not be validated. No analysis result was accepted.';
   if (scan.failureCode === 'ANALYSIS_UNAVAILABLE')
-    return 'Analysis is unavailable. No result was generated; contact support before requesting another attempt.';
+    return 'Analysis is unavailable for this scan. No result was generated, no category or recovery estimate was inferred, and no automatic retry was made. Your scan remains in history.';
   if (scan.failureCode === 'INVALID_IMAGE')
     return 'The uploaded image could not be safely decoded. Use a valid PNG, JPEG or WebP image.';
   return scan.failureCode === 'UPLOAD_REJECTED'
@@ -1119,7 +1120,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
         </form>
       </div>
       {status && (
-        <section className="panel processing-panel" aria-live="polite">
+        <section className="panel processing-panel" aria-label="Scan progress">
           <div className="section-heading">
             <h2>Scan progress</h2>
             <StatusBadge status={status} />
@@ -1140,15 +1141,13 @@ export function ScanPage({ api }: { api: ScanApi }) {
             </>
           )}
           {status === 'FAILED' ? (
-            <p>{failureMessage(scan ?? {})}</p>
+            <p className="report-review-note" role="alert">
+              {failureMessage(scan ?? {})}
+            </p>
           ) : status === 'COMPLETED' ? (
             <AnalysisResult result={scan?.analysis} />
           ) : (
-            <p>
-              {pollStopped
-                ? 'Status polling paused. Processing may still be pending; refresh or check history. No success is assumed.'
-                : 'Following your scan status. A validated result or an explicit failure will appear here.'}
-            </p>
+            <AnalysisLoading status={status} paused={pollStopped} />
           )}
           {pollStopped && (
             <button
