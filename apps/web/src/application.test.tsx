@@ -165,7 +165,7 @@ describe('important application states', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
   }
-  it('enables eligible free-tier processing by default without a per-scan checkbox', async () => {
+  it('enables configured external processing by default without a per-scan checkbox', async () => {
     const api = stubApi();
     vi.mocked(uploadImage).mockResolvedValue();
     vi.mocked(api.get).mockResolvedValue({
@@ -181,7 +181,10 @@ describe('important application states', () => {
     prepareUpload(api);
     expect(await screen.findByText(/Your image was received/)).toBeTruthy();
     expect(screen.queryByRole('checkbox')).toBeNull();
-    expect(screen.getByText(/Eligible free-tier AI providers may process the image/)).toBeTruthy();
+    expect(
+      screen.getByText(/A compressed image may be processed by configured external AI providers/),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/free-tier|zero.cost/i);
     expect(api.create).toHaveBeenCalledWith(
       { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: true },
       expect.any(AbortSignal),

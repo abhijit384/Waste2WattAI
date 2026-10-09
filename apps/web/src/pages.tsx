@@ -830,7 +830,7 @@ export function failureMessage(scan: Pick<WasteScan, 'failureCode'>) {
   if (scan.failureCode === 'INVALID_MODEL_OUTPUT')
     return 'The model response could not be validated. No analysis result was accepted.';
   if (scan.failureCode === 'ANALYSIS_UNAVAILABLE')
-    return 'No validated AI result was generated. Routes that fail the free-tier or zero-cost checks are skipped, paid fallback remains disabled, and no automatic retry was made. Your scan remains in history.';
+    return 'No validated analysis was generated. A configured provider may be unavailable, time out, or return a response that fails validation. No automatic retry was made; your scan remains in history.';
   if (scan.failureCode === 'INVALID_IMAGE')
     return 'The uploaded image could not be safely decoded. Use a valid PNG, JPEG or WebP image.';
   return scan.failureCode === 'UPLOAD_REJECTED'
@@ -1092,8 +1092,8 @@ export function ScanPage({ api }: { api: ScanApi }) {
           <div className="privacy-note">
             <span className="live-dot" />
             <p>
-              Your scan belongs to your account. Eligible free-tier AI providers may process the
-              image; paid inference stays disabled.
+              Your scan belongs to your account. A compressed image may be processed by configured
+              external AI providers under their privacy policies.
             </p>
           </div>
           {error && <ErrorNotice message={error} />}

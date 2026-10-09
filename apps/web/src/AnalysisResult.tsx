@@ -27,36 +27,46 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
         className="analysis-report panel analysis-report-unavailable"
         aria-label="Waste analysis report"
       >
-        <header className="report-unavailable-header">
-          <div className="report-unavailable-mark" aria-hidden="true">
-            !
+        <div className="unavailable-orbit" aria-hidden="true">
+          <span />
+          <span />
+          <b>?</b>
+        </div>
+        <div className="report-unavailable-content">
+          <p className="eyebrow">REPORT STATUS · UNRESOLVED</p>
+          <h2>We couldn’t validate this analysis</h2>
+          <p className="report-unavailable-copy">
+            No structured result passed the application checks, so no category, sorting decision, or
+            recovery estimate was saved. Your scan remains in history.
+          </p>
+          <div className="unavailable-diagnostic" role="note">
+            <span className="diagnostic-pulse" aria-hidden="true" />
+            <div>
+              <strong>What this status tells us</strong>
+              <p>
+                A configured analysis route may be unavailable, time out, or return data that does
+                not match the required report format. This scan record does not include a
+                provider-specific diagnostic, so the exact cause needs service-log review.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="eyebrow">NO VALIDATED RESULT</p>
-            <h2>Analysis unavailable</h2>
-            <p>
-              No provider returned a validated classification for this scan. The server only uses
-              routes that pass its free-tier and zero-cost checks; unverified output is discarded.
-              No category, sorting decision, or recovery estimate has been inferred.
-            </p>
+          <div className="report-unavailable-flow" aria-label="Analysis handling">
+            <article>
+              <span>01 · ROUTE</span>
+              <h3>Provider check</h3>
+              <p>Configured routes are checked in order; unavailable routes can be skipped.</p>
+            </article>
+            <article>
+              <span>02 · REVIEW</span>
+              <h3>Format validation</h3>
+              <p>Only a response that matches the application schema can become a report.</p>
+            </article>
+            <article>
+              <span>03 · NEXT</span>
+              <h3>Review the image</h3>
+              <p>Try again later or use a human review. No automatic retry was made.</p>
+            </article>
           </div>
-        </header>
-        <div className="report-unavailable-flow" aria-label="How this result is handled">
-          <article>
-            <span>01 · ROUTING</span>
-            <h3>Free-only checks</h3>
-            <p>Ineligible or unconfigured providers are skipped. Paid fallback stays off.</p>
-          </article>
-          <article>
-            <span>02 · VALIDATION</span>
-            <h3>Structured output</h3>
-            <p>Responses must pass the Waste2Watt schema before they can become a report.</p>
-          </article>
-          <article>
-            <span>03 · NEXT STEP</span>
-            <h3>Review or try later</h3>
-            <p>If this repeats, provider eligibility and service logs need review.</p>
-          </article>
         </div>
       </section>
     );
@@ -75,11 +85,11 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
     <section className="analysis-report panel" aria-label="Waste intelligence report">
       <header className="report-header">
         <div>
-          <p className="eyebrow">VALIDATED REPORT · {outcome}</p>
-          <h2>Waste intelligence</h2>
+          <p className="eyebrow">WASTE INTELLIGENCE · {outcome}</p>
+          <h2>Material analysis</h2>
           <p className="report-lede">
-            Visual interpretation for review. Treat the image classification as a starting point,
-            not a verified material audit.
+            A structured visual assessment for review. Confirm the material before sorting or acting
+            on this result.
           </p>
         </div>
         <span
@@ -87,13 +97,13 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
         >
           <span aria-hidden="true" />
           {classification.confidenceBand.toLowerCase()} confidence
-          <small>qualitative</small>
+          <small>qualitative signal</small>
         </span>
       </header>
 
-      <div className="report-overview">
-        <article className="report-feature-card report-category-card">
-          <span className="report-card-kicker">PRIMARY CATEGORY</span>
+      <div className="report-hero">
+        <div className="report-hero-copy">
+          <span className="report-card-kicker">PRIMARY MATERIAL</span>
           <h3>{category ?? 'No category identified'}</h3>
           <p>{classification.description}</p>
           <div className="report-tags" aria-label="Other materials identified">
@@ -109,16 +119,25 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
               </span>
             )}
           </div>
-        </article>
-        <article className="report-feature-card report-mass-card">
+        </div>
+        <div className="material-orbit" aria-hidden="true">
+          <span className="material-orbit-ring material-orbit-ring-one" />
+          <span className="material-orbit-ring material-orbit-ring-two" />
+          <span className="material-orbit-ring material-orbit-ring-three" />
+          <span className="material-core">
+            <i />
+          </span>
+          <span className="material-orbit-caption">IMAGE SIGNAL</span>
+        </div>
+        <div className="report-hero-aside">
           <span className="report-card-kicker">RECORDED QUANTITY</span>
           <strong>
             {result.quantityKg.toLocaleString(undefined, { maximumSignificantDigits: 5 })}
             <small> kg</small>
           </strong>
-          <p>Approximate mass supplied with this scan. Material proportions were not measured.</p>
-          <span className="report-data-origin">USER-PROVIDED · APPROXIMATE</span>
-        </article>
+          <p>User-provided approximate mass. Material proportions were not measured.</p>
+          <span className="report-data-origin">RECORDED · APPROXIMATE</span>
+        </div>
       </div>
 
       {classification.humanReviewRecommended && (

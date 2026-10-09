@@ -6,13 +6,11 @@ import { failureMessage } from './pages';
 afterEach(cleanup);
 it('renders unavailable analysis honestly', () => {
   render(<AnalysisResult result={undefined} />);
-  expect(screen.getByRole('heading', { name: 'Analysis unavailable' })).toBeTruthy();
-  expect(
-    screen.getByText(/No category, sorting decision, or recovery estimate has been inferred/),
-  ).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Free-only checks' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Structured output' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Review or try later' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'We couldn’t validate this analysis' })).toBeTruthy();
+  expect(screen.getByText(/No structured result passed the application checks/)).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Provider check' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Format validation' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Review the image' })).toBeTruthy();
 });
 it('renders qualitative evidence, user mass, unknown factors and human review', () => {
   const result = analysisResultSchema.parse({
@@ -57,10 +55,12 @@ it('renders qualitative evidence, user mass, unknown factors and human review', 
   expect(screen.getByText('low confidence')).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Evidence & handling' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Sorting & recovery' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Material analysis' })).toBeTruthy();
+  expect(document.querySelector('.material-orbit')).toBeTruthy();
   expect(
     screen.getByText('RECORDED QUANTITY').parentElement?.querySelector('strong')?.textContent,
   ).toBe('2 kg');
-  expect(screen.getByText(/USER-PROVIDED · APPROXIMATE/)).toBeTruthy();
+  expect(screen.getByText(/RECORDED · APPROXIMATE/)).toBeTruthy();
   expect(screen.getByText(/Human review recommended before sorting/)).toBeTruthy();
   expect(screen.getByText('A verified conversion factor is required.')).toBeTruthy();
   expect(screen.getByText(/not a calibrated probability/)).toBeTruthy();
@@ -76,7 +76,7 @@ it('renders qualitative evidence, user mass, unknown factors and human review', 
     },
   });
   render(<AnalysisResult result={unavailable} />);
-  expect(screen.getByRole('heading', { name: 'Analysis unavailable' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'We couldn’t validate this analysis' })).toBeTruthy();
   expect(screen.queryByText('Mixed')).toBeNull();
 });
 it('describes explicit provider, validation and budget failures without automatic paid retries', () => {
@@ -87,6 +87,6 @@ it('describes explicit provider, validation and budget failures without automati
     'No analysis result was accepted',
   );
   expect(failureMessage({ failureCode: 'ANALYSIS_UNAVAILABLE' })).toContain(
-    'No validated AI result was generated',
+    'No validated analysis was generated',
   );
 });
