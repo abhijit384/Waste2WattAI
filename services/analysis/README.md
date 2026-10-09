@@ -7,20 +7,20 @@ persistence. It is prepared locally, not deployed. Inference defaults off.
 Real multimodal adapters are implemented for Gemini 3.6 Flash, Groq Qwen 3.8 27B,
 OpenRouter Dots `:free`, and Gemini 3.5 Flash, in that fallback order after the
 separately gated Bedrock primary. They use bounded HTTPS requests and the shared
-classification schema. External image processing requires explicit per-scan consent.
-The local policy defaults off, rejects paid account settings, and caps external cost
-at USD 0. The owner confirmed the three external accounts are on free plans and
-rotated the keys stored in the ignored backend `.env.local`; values are never
-reported. A bounded local test fell through Gemini 3.6 (timeout), Groq (HTTP 403),
-and Dots (invalid schema) before Gemini 3.5 returned a valid structured result.
-Remaining quota is not pre-queried; quota/model errors can fall through to the next
-eligible free model.
+classification schema. The scan form now submits the external-processing flag by
+default and shows a processing notice; this does not override the backend's
+fail-closed provider eligibility or zero-cost checks. The owner confirmed the three
+external accounts are on free plans and rotated the keys stored in the ignored
+backend `.env.local`; values are never reported. A bounded local test fell through
+Gemini 3.6 (timeout), Groq (HTTP 403), and Dots (invalid schema) before Gemini 3.5
+returned a valid structured result. Remaining quota is not pre-queried; quota/model
+errors can fall through to the next eligible free model.
 
 For local configuration, preserve `.env.local` in this directory and use `.env.example`
 as the template for missing flags. It is ignored by Git and loaded by the local Python
-handler without printing values. Set free/non-billable account confirmations only
-after checking those account settings. Future Lambda deployment must use AWS Secrets
-Manager; this integration has not been deployed. See
+handler without printing values. The deployed Lambda uses the `EXTERNAL_AI_SECRET_ARN`
+Secrets Manager reference and does not read this local file. Set free/non-billable
+account confirmations only after checking those account settings. See
 [the provider policy](../../docs/AI_PROVIDER_FREE_ONLY.md).
 
 CDK keeps paid inference and Bedrock disabled. Production free-only settings and the

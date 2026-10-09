@@ -1893,20 +1893,31 @@ progress {
 }
 
 .analysis-report-unavailable {
-  display: flex;
-  align-items: center;
-  gap: 17px;
+  display: grid;
+  gap: 20px;
   border-color: rgb(255 138 120 / 25%);
   background: linear-gradient(120deg, rgb(54 32 50 / 78%), rgb(19 18 39 / 84%));
 }
+.report-unavailable-header {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.report-unavailable-header .eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent-coral);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+}
 .analysis-report-unavailable h2 {
   margin: 0 0 6px;
-  font-size: 19px;
+  font-size: clamp(19px, 3vw, 24px);
 }
-.analysis-report-unavailable p:last-child {
+.report-unavailable-header p:last-child {
   margin: 0;
   color: var(--report-soft);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
 }
 .report-unavailable-mark {
@@ -1920,6 +1931,34 @@ progress {
   background: rgb(255 138 120 / 10%);
   color: var(--accent-coral);
   font-size: 23px;
+}
+.report-unavailable-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.report-unavailable-flow article {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: rgb(255 255 255 / 3%);
+}
+.report-unavailable-flow article > span {
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+.report-unavailable-flow h3 {
+  margin: 8px 0 5px;
+  font-size: 12px;
+}
+.report-unavailable-flow p {
+  margin: 0;
+  color: var(--report-soft);
+  font-size: 10px;
+  line-height: 1.55;
 }
 
 .analysis-loader {
@@ -2246,6 +2285,9 @@ progress {
 :root[data-theme='light'] .analysis-report-unavailable {
   background: linear-gradient(120deg, #fff4f2, #f8f5fc);
 }
+:root[data-theme='light'] .report-unavailable-flow article {
+  background: rgb(255 255 255 / 72%);
+}
 :root[data-theme='light'] .analysis-loader {
   background:
     radial-gradient(ellipse at 10% 55%, rgb(154 120 238 / 12%), transparent 42%),
@@ -2261,6 +2303,12 @@ progress {
   .loader-prism,
   .loader-particle {
     animation: none !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .report-unavailable-flow {
+    grid-template-columns: 1fr;
   }
 }
 

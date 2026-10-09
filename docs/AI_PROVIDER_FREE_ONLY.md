@@ -40,11 +40,13 @@ configuration.
 The template defaults all inference off. For a local smoke test, the operator must
 explicitly enable the inference and external-provider flags, leave all paid flags
 false and the maximum external cost at zero, and confirm the provider's free plan.
-The scan must also have the explicit external-processing checkbox selected. No
-quota lookup is needed; provider quota exhaustion should return an error and move
-to the next eligible provider. For a future AWS runtime, use AWS Secrets Manager
-and a narrowly scoped secret read permission; that integration has not been
-deployed or enabled here.
+The web scan form now submits the external-processing flag as true by default and
+displays a notice that eligible free-tier providers may process the image. This UI
+setting does not enable inference or bypass any backend provider, account, or
+zero-cost checks. No quota lookup is needed; provider quota exhaustion should
+return an error and move to the next eligible provider. For a future AWS runtime,
+use AWS Secrets Manager and a narrowly scoped secret read permission; that
+integration has not been deployed or enabled here.
 
 ## Zero-cost enforcement
 
@@ -68,11 +70,13 @@ parameters, and caps prompt, completion, image, and request price at zero. It as
 for usage accounting and refuses a result if cost is nonzero, missing, or reported
 as BYOK. A paid or unverified cost stops the chain. No model is silently substituted.
 
-All providers receive the same compressed, metadata-stripped JPEG only after
-explicit per-scan consent. The existing classification schema is enforced locally;
-malformed, truncated, refused, unavailable, or schema-invalid responses are not
-persisted as successful classifications. These adapters do not infer mass,
-material proportions, energy, carbon, hazard absence, or facility acceptance.
+When external processing is requested, all providers receive the same compressed,
+metadata-stripped JPEG. The current web form requests it by default and presents
+the processing notice before scan submission. The existing classification schema
+is enforced locally; malformed, truncated, refused, unavailable, or schema-invalid
+responses are not persisted as successful classifications. These adapters do not
+infer mass, material proportions, energy, carbon, hazard absence, or facility
+acceptance.
 
 ## Provider capability and billing review
 
@@ -93,9 +97,10 @@ and non-billable conditions are confirmed.
 
 Automated tests use mocked transports only. They verify provider order, free-only
 gates, image payloads, structured response parsing, OpenRouter zero-cost routing,
-consent, sequential failover, output-schema rejection, bounded timeouts, and secret
-redaction. No provider values are checked into this repository. No AWS resources
-were deployed and no live provider request was made in this validation.
+the web form's default external-processing flag and disclosure, sequential failover,
+output-schema rejection, bounded timeouts, and secret redaction. No provider values
+are checked into this repository. No AWS resources were deployed and no live
+provider request was made in this validation.
 
 ## Official references
 

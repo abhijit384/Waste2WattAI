@@ -27,16 +27,36 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
         className="analysis-report panel analysis-report-unavailable"
         aria-label="Waste analysis report"
       >
-        <div className="report-unavailable-mark" aria-hidden="true">
-          ?
-        </div>
-        <div>
-          <p className="eyebrow">RESULT STATUS</p>
-          <h2>Analysis unavailable</h2>
-          <p>
-            This scan has no validated analysis result. No category, sorting decision, or recovery
-            estimate has been inferred.
-          </p>
+        <header className="report-unavailable-header">
+          <div className="report-unavailable-mark" aria-hidden="true">
+            !
+          </div>
+          <div>
+            <p className="eyebrow">NO VALIDATED RESULT</p>
+            <h2>Analysis unavailable</h2>
+            <p>
+              No provider returned a validated classification for this scan. The server only uses
+              routes that pass its free-tier and zero-cost checks; unverified output is discarded.
+              No category, sorting decision, or recovery estimate has been inferred.
+            </p>
+          </div>
+        </header>
+        <div className="report-unavailable-flow" aria-label="How this result is handled">
+          <article>
+            <span>01 · ROUTING</span>
+            <h3>Free-only checks</h3>
+            <p>Ineligible or unconfigured providers are skipped. Paid fallback stays off.</p>
+          </article>
+          <article>
+            <span>02 · VALIDATION</span>
+            <h3>Structured output</h3>
+            <p>Responses must pass the Waste2Watt schema before they can become a report.</p>
+          </article>
+          <article>
+            <span>03 · NEXT STEP</span>
+            <h3>Review or try later</h3>
+            <p>If this repeats, provider eligibility and service logs need review.</p>
+          </article>
         </div>
       </section>
     );

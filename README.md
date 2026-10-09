@@ -11,8 +11,9 @@ constrained uploads and Android acceptance were completed and documented.
 The Phase 5 analysis workflow is deployed with `AI_INFERENCE_ENABLED=false`. Bedrock
 Nova Lite access remains externally blocked (`NOT_AUTHORIZED` / `Operation not allowed`),
 so the site deliberately reports analysis unavailable and does not invent results.
-Third-party AI inference is disabled; only verified free-tier models may be enabled,
-with a hard USD 0 external AI cost policy and explicit external-processing consent.
+External free-tier routing remains behind the backend's verified-provider and hard USD 0
+cost gates. The scan form discloses that eligible providers may process an image and
+submits the external-processing flag by default; paid inference remains disabled.
 See [the zero-cost provider policy](docs/AI_PROVIDER_FREE_ONLY.md).
 The current Dashboard and Digital Twin summarize authenticated records; the scenario
 calculator is a user-entered cited simulation, and the advisor uses deterministic

@@ -10,6 +10,9 @@ it('renders unavailable analysis honestly', () => {
   expect(
     screen.getByText(/No category, sorting decision, or recovery estimate has been inferred/),
   ).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Free-only checks' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Structured output' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Review or try later' })).toBeTruthy();
 });
 it('renders qualitative evidence, user mass, unknown factors and human review', () => {
   const result = analysisResultSchema.parse({
@@ -84,6 +87,6 @@ it('describes explicit provider, validation and budget failures without automati
     'No analysis result was accepted',
   );
   expect(failureMessage({ failureCode: 'ANALYSIS_UNAVAILABLE' })).toContain(
-    'No result was generated',
+    'No validated AI result was generated',
   );
 });
