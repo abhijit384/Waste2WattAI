@@ -1180,6 +1180,21 @@ export function ScanPage({ api }: { api: ScanApi }) {
 }
 export function Settings() {
   const auth = useAuth();
+  const [firstName, setFirstName] = useState(auth.profile?.firstName ?? '');
+  const [profileMessage, setProfileMessage] = useState('');
+  const [signOutError, setSignOutError] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    setFirstName(auth.profile?.firstName ?? '');
+  }, [auth.profile?.firstName]);
+
+  const supportUrl = new URL('https://github.com/abhijit384/Waste2WattAI/issues/new');
+  supportUrl.searchParams.set('title', 'Waste2Watt AI account support request');
+  supportUrl.searchParams.set(
+    'body',
+    'Please describe the account or data issue. Do not include passwords, authentication codes, API keys, or uploaded images.',
+  );
+
   return (
     <>
       <PageHeading
@@ -1187,21 +1202,163 @@ export function Settings() {
         title="Your account. Your workspace."
         description="A transparent view of your current configuration."
       />
-      <section className="panel settings-panel">
-        <h2>Account & privacy</h2>
-        <dl>
-          <dt>Authentication</dt>
-          <dd>Amazon Cognito</dd>
-          <dt>Account ID</dt>
-          <dd>{auth.userId}</dd>
-          <dt>Image access</dt>
-          <dd>Private; no permanent public image URLs</dd>
-          <dt>Analysis engine</dt>
-          <dd>Configured; live inference is disabled pending authorization</dd>
-        </dl>
-        <p className="muted">
-          Account deletion, data export, and notification settings are planned. No controls pretend
-          to save settings.
+      <div className="settings-grid">
+        <section className="panel settings-panel profile-panel">
+          <p className="eyebrow">PROFILE</p>
+          <h2>Your details</h2>
+          <p className="muted">Your profile is managed securely with Amazon Cognito.</p>
+          <dl>
+            <dt>Email</dt>
+            <dd>{auth.profile?.email || 'Email unavailable'}</dd>
+            <dt>Email status</dt>
+            <dd>
+              {auth.profile?.emailVerified === undefined
+                ? 'Status unavailable'
+                : auth.profile.emailVerified
+                  ? 'Verified'
+                  : 'Not verified'}
+            </dd>
+            <dt>Last name</dt>
+            <dd>{auth.profile?.lastName || 'Not provided'}</dd>
+            <dt>Sign-in</dt>
+            <dd>Email and password</dd>
+          </dl>
+          <form
+            className="profile-name-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSaving(true);
+              setProfileMessage('');
+              void auth
+                .updateFirstName(firstName)
+                .then(() => setProfileMessage('First name saved.'))
+                .catch(() => setProfileMessage('Your name could not be saved. Please try again.'))
+                .finally(() => setSaving(false));
+            }}
+          >
+            <label htmlFor="profile-first-name">First name</label>
+            <div className="profile-name-control">
+              <input
+                id="profile-first-name"
+                name="firstName"
+                autoComplete="given-name"
+                maxLength={80}
+                required
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+              />
+              <button
+                className="button secondary"
+                type="submit"
+                disabled={
+                  saving || !firstName.trim() || firstName.trim() === auth.profile?.firstName
+                }
+              >
+                {saving ? 'Saving…' : 'Save name'}
+              </button>
+            </div>
+            {profileMessage && (
+              <p className="field-help" role="status">
+                {profileMessage}
+              </p>
+            )}
+          </form>
+        </section>
+
+        <section className="panel settings-panel privacy-panel">
+          <p className="eyebrow">ACCOUNT & PRIVACY</p>
+          <h2>Your data stays account-scoped</h2>
+          <dl>
+            <dt>Authentication</dt>
+            <dd>Amazon Cognito</dd>
+            <dt>Image access</dt>
+            <dd>Private storage; no permanent public image URLs</dd>
+            <dt>Scan history</dt>
+            <dd>Visible to your authenticated account</dd>
+          </dl>
+          {signOutError && <ErrorNotice message={signOutError} />}
+          <div className="settings-actions">
+            <button
+              className="button secondary"
+              onClick={() => {
+                void auth
+                  .signOut()
+                  .catch(() => setSignOutError('Sign out could not finish. Please retry.'));
+              }}
+            >
+              Sign out
+            </button>
+            <a
+              className="button danger-link"
+              href={supportUrl.toString()}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Request account deletion
+            </a>
+          </div>
+          <p className="muted small">
+            Deletion requests are reviewed with the associated scan records and private images so
+            account data is handled together. The request link requires access to the project
+            support tracker.
+          </p>
+        </section>
+      </div>
+
+      <section className="panel settings-panel help-panel">
+        <p className="eyebrow">HELP & SUPPORT</p>
+        <h2>Frequently asked questions</h2>
+        <div className="faq-list">
+          <details>
+            <summary>What happens to the images I upload?</summary>
+            <p>
+              Images are stored in private storage and scans are tied to your authenticated account.
+              A scan may also send a compressed image to configured analysis providers as described
+              on the scan page.
+            </p>
+          </details>
+          <details>
+            <summary>Why might an analysis be unavailable?</summary>
+            <p>
+              An analysis is unavailable when configured providers cannot return a valid result. The
+              app does not invent a classification or mark an unavailable result as successful.
+            </p>
+          </details>
+          <details>
+            <summary>Why are energy or carbon estimates sometimes missing?</summary>
+            <p>
+              Estimates are shown only when reviewed conversion factors and required inputs are
+              available. Missing evidence stays unestimated.
+            </p>
+          </details>
+          <details>
+            <summary>How can I request help or account deletion?</summary>
+            <p>
+              Contact project support using the link below. Deletion is reviewed together with
+              account-owned scans and images; it is not performed by simply removing your sign-in.
+              Do not include passwords, verification codes, API keys, or image files in a request.
+            </p>
+          </details>
+        </div>
+        <div className="customer-care">
+          <div>
+            <h3>Need a hand?</h3>
+            <p className="muted">
+              Contact the Waste2Watt project support team for account and data requests.
+            </p>
+          </div>
+          <a
+            className="button secondary"
+            href={supportUrl.toString()}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Contact customer care ↗
+          </a>
+        </div>
+        <p className="muted small">
+          Support currently uses the project issue tracker and requires repository access. Never
+          post credentials or private images there.
         </p>
       </section>
     </>

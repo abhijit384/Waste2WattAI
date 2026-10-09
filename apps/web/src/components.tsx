@@ -1,6 +1,6 @@
 import { Component, createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { useAuth } from './auth';
+import { profileInitial, useAuth } from './auth';
 import type { ScanStatus, WasteScan } from '@waste2watt/shared';
 
 export function Mark() {
@@ -206,9 +206,14 @@ export function Layout() {
           </span>
           <div className="account-controls">
             <ThemeToggle />
-            <span className="account-avatar" aria-label="Authenticated account">
-              W
-            </span>
+            <Link
+              to="/settings"
+              className="account-avatar"
+              aria-label={`Profile${auth.profile?.firstName ? ` for ${auth.profile.firstName}` : ''}`}
+              title="Open your profile"
+            >
+              {profileInitial(auth.profile)}
+            </Link>
             <button
               className="text-button"
               onClick={() => {

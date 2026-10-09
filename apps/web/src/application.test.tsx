@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { AuthContext, ProtectedRoute } from './auth';
+import { AuthContext, ProtectedRoute, profileFromAttributes, profileInitial } from './auth';
 import { parseFrontendConfig } from './config';
 import { validateImage } from './file-validation';
 import {
@@ -11,6 +11,7 @@ import {
   ScanPage,
   ScenarioSimulator,
   failureMessage,
+  Settings,
 } from './pages';
 import { ErrorBoundary, ThemeProvider, ThemeToggle } from './components';
 import { createApi, uploadImage, type ScanApi } from './api';
@@ -95,7 +96,9 @@ describe('protected routing', () => {
   for (const status of ['loading', 'anonymous', 'authenticated'] as const)
     it(`handles ${status} session`, () => {
       render(
-        <AuthContext.Provider value={{ status, signOut: async () => {} }}>
+        <AuthContext.Provider
+          value={{ status, signOut: async () => {}, updateFirstName: async () => {} }}
+        >
           <MemoryRouter initialEntries={['/private']}>
             <Routes>
               <Route
@@ -121,6 +124,55 @@ describe('protected routing', () => {
         ),
       ).toBeTruthy();
     });
+});
+describe('account profile', () => {
+  it('reads public profile attributes and uses the first name for the avatar', () => {
+    const profile = profileFromAttributes({
+      given_name: 'Asha',
+      family_name: 'Rao',
+      email: 'asha@example.com',
+      email_verified: 'true',
+    });
+    expect(profile).toMatchObject({
+      firstName: 'Asha',
+      lastName: 'Rao',
+      fullName: 'Asha Rao',
+      email: 'asha@example.com',
+      emailVerified: true,
+    });
+    expect(profileInitial(profile)).toBe('A');
+  });
+
+  it('uses a sensible initial fallback when the first name is missing', () => {
+    expect(profileInitial({ email: 'maya@example.com' })).toBe('M');
+    expect(profileInitial()).toBe('A');
+    expect(profileFromAttributes({ email: 'maya@example.com' }).emailVerified).toBeUndefined();
+  });
+
+  it('shows profile details, account actions, FAQs, and customer-care access', () => {
+    render(
+      <MemoryRouter>
+        <AuthContext.Provider
+          value={{
+            status: 'authenticated',
+            userId: 'private-subject-id',
+            profile: { firstName: 'Asha', email: 'asha@example.com', emailVerified: true },
+            signOut: async () => {},
+            updateFirstName: async () => {},
+          }}
+        >
+          <Settings />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('asha@example.com')).toBeTruthy();
+    expect(screen.getByText('Verified')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Request account deletion' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Contact customer care/ })).toBeTruthy();
+    expect(screen.getByText('Frequently asked questions')).toBeTruthy();
+    expect(screen.queryByText('private-subject-id')).toBeNull();
+  });
 });
 describe('file validation', () => {
   it('accepts supported MIME types at the size boundary', () => {
