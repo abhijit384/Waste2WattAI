@@ -37,34 +37,35 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
           <h2>We couldn’t validate this analysis</h2>
           <p className="report-unavailable-copy">
             No structured result passed the application checks, so no category, sorting decision, or
-            recovery estimate was saved. Your scan remains in history.
+            recovery estimate was saved. The uploaded scan remains available in your history.
           </p>
           <div className="unavailable-diagnostic" role="note">
             <span className="diagnostic-pulse" aria-hidden="true" />
             <div>
               <strong>What this status tells us</strong>
               <p>
-                A configured analysis route may be unavailable, time out, or return data that does
-                not match the required report format. This scan record does not include a
-                provider-specific diagnostic, so the exact cause needs service-log review.
+                The scan record stores a safe failure code, not a provider-specific error. Inference
+                may be disabled for the deployment, a configured provider may be unavailable, or a
+                response may fail the required report format. Service diagnostics are needed to
+                distinguish those causes.
               </p>
             </div>
           </div>
           <div className="report-unavailable-flow" aria-label="Analysis handling">
             <article>
-              <span>01 · ROUTE</span>
-              <h3>Provider check</h3>
-              <p>Configured routes are checked in order; unavailable routes can be skipped.</p>
+              <span>01 · RECORD</span>
+              <h3>Image stored</h3>
+              <p>Your scan and its approximate quantity remain in your account history.</p>
             </article>
             <article>
-              <span>02 · REVIEW</span>
-              <h3>Format validation</h3>
-              <p>Only a response that matches the application schema can become a report.</p>
+              <span>02 · SERVER</span>
+              <h3>Analysis gate</h3>
+              <p>The server controls whether inference is enabled and which providers can run.</p>
             </article>
             <article>
-              <span>03 · NEXT</span>
-              <h3>Review the image</h3>
-              <p>Try again later or use a human review. No automatic retry was made.</p>
+              <span>03 · RESULT</span>
+              <h3>No result assumed</h3>
+              <p>No category or recovery estimate is displayed until a response is validated.</p>
             </article>
           </div>
         </div>

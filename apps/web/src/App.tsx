@@ -6,6 +6,7 @@ import { Brand, ErrorBoundary, Layout, ThemeProvider } from './components';
 import {
   AuthPage,
   Advisor,
+  AnalysisPage,
   ConfigurationNotice,
   Dashboard,
   DigitalTwin,
@@ -40,6 +41,7 @@ export function ApplicationRoutes({ config }: { config: FrontendConfig }) {
       >
         <Route path="/dashboard" element={<Dashboard api={api} />} />
         <Route path="/scan" element={<ScanPage api={api} />} />
+        <Route path="/analysis/:scanId" element={<AnalysisPage api={api} />} />
         <Route path="/history" element={<History api={api} />} />
         <Route path="/digital-twin" element={<DigitalTwin api={api} />} />
         <Route path="/simulator" element={<ScenarioSimulator />} />

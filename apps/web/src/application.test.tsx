@@ -8,6 +8,7 @@ import {
   ConfigurationNotice,
   Dashboard,
   DigitalTwin,
+  AnalysisPage,
   ScanPage,
   ScenarioSimulator,
   failureMessage,
@@ -16,6 +17,7 @@ import {
 import { ErrorBoundary, ThemeProvider, ThemeToggle } from './components';
 import { createApi, uploadImage, type ScanApi } from './api';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { analysisResultSchema } from '@waste2watt/shared';
 
 vi.mock('aws-amplify/auth', async (original) => ({
   ...(await original<typeof import('aws-amplify/auth')>()),
@@ -329,6 +331,102 @@ describe('important application states', () => {
     expect(failureMessage({ failureCode: 'ANALYSIS_NOT_IMPLEMENTED' })).toContain(
       'No AI result was generated',
     ));
+  it('loads a dedicated private report route and displays the complete validated analysis', async () => {
+    const scanId = '10000000-0000-4000-8000-000000000001';
+    const api = stubApi();
+    vi.mocked(api.get).mockResolvedValue({
+      scanId,
+      userId: '10000000-0000-4000-8000-000000000002',
+      status: 'COMPLETED',
+      quantityKg: 1.5,
+      unit: 'kg',
+      createdAt: '2026-10-08T00:00:00.000Z',
+      updatedAt: '2026-10-08T00:01:00.000Z',
+      analysis: analysisResultSchema.parse({
+        schemaVersion: '1',
+        classification: {
+          outcome: 'CLASSIFIED',
+          primaryCategory: 'PLASTIC',
+          otherMaterials: [],
+          description: 'A rigid plastic container is visible.',
+          confidenceBand: 'MEDIUM',
+          contamination: 'UNKNOWN',
+          separationConcerns: [],
+          safetyConcerns: [],
+          humanReviewRecommended: false,
+          materialProportions: null,
+        },
+        recovery: {
+          recommendedPathway: 'RECYCLING',
+          alternativePathways: ['REUSE'],
+          explanation: 'Check local acceptance before recycling.',
+          eligibilityConstraints: [],
+          warnings: [],
+          actionable: false,
+          facilityStatus: 'UNVERIFIED',
+        },
+        impact: {
+          energyKwh: null,
+          energyBasis: null,
+          carbonBenefitKgCo2e: null,
+          baseline: null,
+          explanation: 'No verified conversion factor applies.',
+          sources: [],
+          assumptions: [],
+        },
+        modelId: 'test-model',
+        modelVersion: 'test-model',
+        processedAt: '2026-10-08T00:01:00.000Z',
+        quantityKg: 1.5,
+        factorCatalogVersion: '2026-10-08.1',
+      }),
+    });
+
+    render(
+      <MemoryRouter initialEntries={[`/analysis/${scanId}`]}>
+        <Routes>
+          <Route path="/analysis/:scanId" element={<AnalysisPage api={api} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Validated image assessment' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Plastic' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Sorting & recovery' })).toBeTruthy();
+    expect(api.get).toHaveBeenCalledWith(scanId, expect.any(AbortSignal));
+    expect(screen.getByRole('link', { name: /Scan history/ }).getAttribute('href')).toBe(
+      '/history',
+    );
+  });
+  it('explains the unavailable status without claiming that a waste category was rejected', async () => {
+    const scanId = '10000000-0000-4000-8000-000000000003';
+    const api = stubApi();
+    vi.mocked(api.get).mockResolvedValue({
+      scanId,
+      userId: '10000000-0000-4000-8000-000000000002',
+      status: 'FAILED',
+      failureCode: 'ANALYSIS_UNAVAILABLE',
+      quantityKg: 1,
+      unit: 'kg',
+      createdAt: '2026-10-08T00:00:00.000Z',
+      updatedAt: '2026-10-08T00:01:00.000Z',
+    });
+
+    render(
+      <MemoryRouter initialEntries={[`/analysis/${scanId}`]}>
+        <Routes>
+          <Route path="/analysis/:scanId" element={<AnalysisPage api={api} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'No validated result yet' })).toBeTruthy();
+    expect(
+      screen.getByText(/The classifier accepts organic, plastic, paper\/cardboard/),
+    ).toBeTruthy();
+    expect(screen.getByText(/cannot tell whether a particular image was unfamiliar/)).toBeTruthy();
+    expect(screen.getByText(/Inference may be disabled/)).toBeTruthy();
+  });
   it('calculates cited scenario inputs and labels them as simulated', () => {
     wrap(<ScenarioSimulator />);
     fireEvent.change(screen.getByLabelText('Quantity (kg)'), { target: { value: '2' } });

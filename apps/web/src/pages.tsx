@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './auth';
 import type { FrontendConfig } from './config';
 import {
@@ -808,17 +808,20 @@ export function History({ api }: { api: ScanApi }) {
             <dt>Updated</dt>
             <dd>{new Date(selected.updatedAt).toLocaleString()}</dd>
           </dl>
-          {selected.status === 'COMPLETED' && <AnalysisResult result={selected.analysis} />}
-          {selected.status === 'FAILED' && selected.failureCode === 'ANALYSIS_UNAVAILABLE' && (
-            <AnalysisResult result={undefined} />
+          {selected.status === 'COMPLETED' && (
+            <p className="muted">A validated report is ready to review on its dedicated page.</p>
           )}
-          <p className="muted">
-            {selected.status === 'FAILED'
-              ? failureMessage(selected)
-              : selected.status === 'COMPLETED'
-                ? 'Analysis completed; review its evidence and limitations above.'
-                : 'Analysis is pending. No validated result is available yet.'}
-          </p>
+          {selected.status === 'FAILED' && (
+            <p className="report-review-note" role="note">
+              {failureMessage(selected)}
+            </p>
+          )}
+          <Link className="button secondary" to={`/analysis/${selected.scanId}`}>
+            Open dedicated report <span aria-hidden="true">↗</span>
+          </Link>
+          {!['COMPLETED', 'FAILED'].includes(selected.status) && (
+            <p className="muted">Analysis is pending. No validated result is available yet.</p>
+          )}
         </section>
       )}
     </>
@@ -830,7 +833,7 @@ export function failureMessage(scan: Pick<WasteScan, 'failureCode'>) {
   if (scan.failureCode === 'INVALID_MODEL_OUTPUT')
     return 'The model response could not be validated. No analysis result was accepted.';
   if (scan.failureCode === 'ANALYSIS_UNAVAILABLE')
-    return 'No validated analysis was generated. A configured provider may be unavailable, time out, or return a response that fails validation. No automatic retry was made; your scan remains in history.';
+    return 'The scan was saved, but the analysis service did not return a validated result. The saved status does not identify whether inference was disabled, a provider was unavailable, or its response failed validation. No automatic retry was made.';
   if (scan.failureCode === 'INVALID_IMAGE')
     return 'The uploaded image could not be safely decoded. Use a valid PNG, JPEG or WebP image.';
   return scan.failureCode === 'UPLOAD_REJECTED'
@@ -839,6 +842,141 @@ export function failureMessage(scan: Pick<WasteScan, 'failureCode'>) {
       ? 'Your image was received. The development analysis pipeline is not implemented yet and deliberately failed. No AI result was generated.'
       : 'Processing failed. No AI result is available. You can revisit this scan in history.';
 }
+
+export function AnalysisPage({ api }: { api: ScanApi }) {
+  const { scanId } = useParams();
+  const [scan, setScan] = useState<WasteScan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError('');
+    setScan(null);
+    if (!scanId) {
+      setError('This report link does not include a scan. Open the report from scan history.');
+      setLoading(false);
+      return () => controller.abort();
+    }
+    void api
+      .get(scanId, controller.signal)
+      .then((record) => {
+        if (!controller.signal.aborted) setScan(record);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted)
+          setError(reason instanceof Error ? reason.message : 'This report could not be loaded.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [api, scanId, refreshKey]);
+
+  const isPending = scan !== null && !['COMPLETED', 'FAILED'].includes(scan.status);
+  return (
+    <div className="analysis-page">
+      <PageHeading
+        eyebrow="WASTE INTELLIGENCE · SCAN REPORT"
+        title={scan?.sourceLabel || 'Your analysis report'}
+        description="A private, evidence-led record of what the image analysis could validate."
+        action={
+          <div className="analysis-page-actions">
+            <Link to="/history" className="button secondary">
+              Scan history
+            </Link>
+            <Link to="/scan" className="button primary">
+              New scan
+            </Link>
+          </div>
+        }
+      />
+
+      {loading && <Skeleton />}
+      {!loading && error && (
+        <ErrorNotice message={error} retry={() => setRefreshKey((key) => key + 1)} />
+      )}
+
+      {!loading && scan && (
+        <>
+          <section className="analysis-identity panel" aria-label="Scan report details">
+            <div className="analysis-identity-mark" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className="analysis-identity-copy">
+              <p className="eyebrow">REPORT OVERVIEW</p>
+              <h2>{scan.status === 'COMPLETED' ? 'Validated image assessment' : 'Scan record'}</h2>
+              <p>
+                {scan.status === 'COMPLETED'
+                  ? 'The server accepted a structured result. Review its evidence and limitations below.'
+                  : scan.status === 'FAILED'
+                    ? 'The upload is recorded. A validated analysis is not available for this scan.'
+                    : 'Your image is stored privately while the analysis workflow updates this record.'}
+              </p>
+            </div>
+            <StatusBadge status={scan.status} />
+            <dl className="analysis-identity-facts">
+              <div>
+                <dt>Approximate quantity</dt>
+                <dd>
+                  {scan.quantityKg.toLocaleString(undefined, { maximumSignificantDigits: 5 })} kg
+                </dd>
+              </div>
+              <div>
+                <dt>Captured</dt>
+                <dd>{new Date(scan.createdAt).toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Last updated</dt>
+                <dd>{new Date(scan.updatedAt).toLocaleString()}</dd>
+              </div>
+            </dl>
+          </section>
+
+          {scan.status === 'COMPLETED' && <AnalysisResult result={scan.analysis} />}
+          {scan.status === 'FAILED' && (
+            <>
+              {scan.failureCode === 'ANALYSIS_UNAVAILABLE' && <AnalysisResult result={undefined} />}
+              <section className="analysis-failure-note panel" role="note">
+                <p className="eyebrow">WHAT HAPPENED</p>
+                <h2>
+                  {scan.failureCode === 'ANALYSIS_UNAVAILABLE'
+                    ? 'No validated result yet'
+                    : 'This scan did not complete'}
+                </h2>
+                <p>{failureMessage(scan)}</p>
+                <p className="analysis-diagnostic-hint">
+                  For an unavailable analysis, the scan record contains only a safe failure code.
+                  Service diagnostics are needed to identify the exact provider or configuration
+                  cause.
+                </p>
+                <p className="analysis-taxonomy-note">
+                  The classifier accepts organic, plastic, paper/cardboard, metal, glass, textile,
+                  electronic waste, mixed materials and other waste. This status only confirms that
+                  no valid classification was saved; it cannot tell whether a particular image was
+                  unfamiliar to a model or failed for another service reason.
+                </p>
+              </section>
+            </>
+          )}
+          {isPending && (
+            <section className="panel analysis-pending-panel">
+              <AnalysisLoading status={scan.status} />
+              <button className="button secondary" onClick={() => setRefreshKey((key) => key + 1)}>
+                Refresh report status
+              </button>
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ScanPage({ api }: { api: ScanApi }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
@@ -1133,16 +1271,40 @@ export function ScanPage({ api }: { api: ScanApi }) {
             </>
           )}
           {status === 'FAILED' ? (
-            <>
-              {scan?.failureCode === 'ANALYSIS_UNAVAILABLE' && (
-                <AnalysisResult result={undefined} />
-              )}
-              <p className="report-review-note" role="alert">
-                {failureMessage(scan ?? {})}
-              </p>
-            </>
+            <div className="scan-outcome-card scan-outcome-failed" role="status">
+              <span className="scan-outcome-orbit" aria-hidden="true">
+                ?
+              </span>
+              <div>
+                <p className="eyebrow">REPORT STATUS · NEEDS REVIEW</p>
+                <h3>The image was saved; analysis is unavailable</h3>
+                <p>{failureMessage(scan ?? {})}</p>
+                {scanId && (
+                  <Link className="button secondary" to={`/analysis/${scanId}`}>
+                    Open scan report <span aria-hidden="true">↗</span>
+                  </Link>
+                )}
+              </div>
+            </div>
           ) : status === 'COMPLETED' ? (
-            <AnalysisResult result={scan?.analysis} />
+            <div className="scan-outcome-card scan-outcome-complete" role="status">
+              <span className="scan-outcome-orbit" aria-hidden="true">
+                ✓
+              </span>
+              <div>
+                <p className="eyebrow">REPORT STATUS · VALIDATED</p>
+                <h3>Your structured report is ready</h3>
+                <p>
+                  Open the dedicated report to review material evidence, sorting guidance and
+                  limitations.
+                </p>
+                {scanId && (
+                  <Link className="button primary" to={`/analysis/${scanId}`}>
+                    View analysis report <span aria-hidden="true">↗</span>
+                  </Link>
+                )}
+              </div>
+            </div>
           ) : (
             <AnalysisLoading status={status} paused={pollStopped} />
           )}

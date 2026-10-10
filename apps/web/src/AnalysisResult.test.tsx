@@ -8,9 +8,9 @@ it('renders unavailable analysis honestly', () => {
   render(<AnalysisResult result={undefined} />);
   expect(screen.getByRole('heading', { name: 'We couldn’t validate this analysis' })).toBeTruthy();
   expect(screen.getByText(/No structured result passed the application checks/)).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Provider check' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Format validation' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Review the image' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Image stored' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Analysis gate' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'No result assumed' })).toBeTruthy();
 });
 it('renders qualitative evidence, user mass, unknown factors and human review', () => {
   const result = analysisResultSchema.parse({
@@ -87,6 +87,6 @@ it('describes explicit provider, validation and budget failures without automati
     'No analysis result was accepted',
   );
   expect(failureMessage({ failureCode: 'ANALYSIS_UNAVAILABLE' })).toContain(
-    'No validated analysis was generated',
+    'did not return a validated result',
   );
 });

@@ -1618,6 +1618,268 @@ progress {
   --amplify-components-tabs-item-active-border-color: #c5a8ff;
 }
 
+/* A scan gets its own report canvas instead of mixing analysis into the upload form. */
+.analysis-page > .analysis-report,
+.analysis-page > .analysis-failure-note,
+.analysis-page > .analysis-pending-panel {
+  margin-top: 20px;
+}
+
+.analysis-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.analysis-identity {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px 22px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20px;
+  padding: clamp(20px, 3vw, 34px);
+  background:
+    radial-gradient(ellipse at 8% 110%, rgb(197 168 255 / 15%), transparent 48%),
+    linear-gradient(120deg, var(--panel), color-mix(in srgb, var(--surface-raised), transparent 8%));
+}
+
+.analysis-identity-mark {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: radial-gradient(circle, rgb(197 168 255 / 22%), rgb(197 168 255 / 4%) 70%);
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 9%),
+    0 15px 40px rgb(0 0 0 / 12%);
+}
+
+.analysis-identity-mark span {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  animation: report-orbit 8s linear infinite;
+}
+
+.analysis-identity-mark span:nth-child(2) {
+  width: 48px;
+  height: 20px;
+  border-color: var(--accent-blue);
+  transform: rotate(58deg);
+  animation-duration: 10s;
+  animation-direction: reverse;
+}
+
+.analysis-identity-mark span:nth-child(3) {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  background: var(--accent-coral);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent-coral), transparent 30%);
+}
+
+@keyframes report-orbit {
+  to {
+    rotate: 360deg;
+  }
+}
+
+.analysis-identity-copy .eyebrow {
+  margin-bottom: 7px;
+}
+
+.analysis-identity-copy h2,
+.analysis-failure-note h2 {
+  margin: 0 0 7px;
+  font-size: clamp(19px, 2.4vw, 26px);
+  letter-spacing: -0.04em;
+}
+
+.analysis-identity-copy > p:last-child,
+.analysis-failure-note > p:not(.eyebrow) {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.analysis-identity-facts {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 4px 0 0;
+}
+
+.analysis-identity-facts > div {
+  min-width: 0;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 3%);
+}
+
+.analysis-identity-facts dt {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.analysis-identity-facts dd {
+  margin: 6px 0 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.analysis-failure-note {
+  padding: clamp(20px, 3vw, 32px);
+  border-color: color-mix(in srgb, var(--accent-coral), var(--border) 58%);
+}
+
+.analysis-failure-note .eyebrow {
+  color: var(--accent-coral);
+}
+
+.analysis-failure-note h2 {
+  margin-bottom: 10px;
+}
+
+.analysis-failure-note .analysis-diagnostic-hint,
+.analysis-failure-note .analysis-taxonomy-note {
+  margin-top: 14px !important;
+  padding: 13px 15px;
+  border-left: 2px solid var(--accent-blue);
+  border-radius: 0 12px 12px 0;
+  background: rgb(139 220 255 / 6%);
+}
+
+.analysis-failure-note .analysis-taxonomy-note {
+  border-left-color: var(--accent);
+  background: rgb(197 168 255 / 6%);
+}
+
+.analysis-pending-panel .analysis-loader {
+  margin-bottom: 18px;
+}
+
+.scan-outcome-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: start;
+  gap: 17px;
+  margin: 20px 0;
+  padding: clamp(19px, 3vw, 28px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse at 0 0, rgb(197 168 255 / 10%), transparent 48%), var(--panel);
+}
+
+.scan-outcome-orbit {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent);
+  border-radius: 18px;
+  color: var(--accent);
+  background: rgb(197 168 255 / 8%);
+  box-shadow: 0 0 30px rgb(197 168 255 / 10%);
+  font-size: 23px;
+}
+
+.scan-outcome-failed .scan-outcome-orbit {
+  color: var(--accent-coral);
+  border-color: var(--accent-coral);
+}
+
+.scan-outcome-card .eyebrow {
+  margin-bottom: 7px;
+}
+
+.scan-outcome-card h3 {
+  margin-bottom: 6px;
+  font-size: 19px;
+}
+
+.scan-outcome-card p:not(.eyebrow) {
+  max-width: 760px;
+  margin-bottom: 15px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+:root[data-theme='light'] .analysis-identity,
+:root[data-theme='light'] .scan-outcome-card {
+  background:
+    radial-gradient(ellipse at 8% 110%, rgb(118 82 200 / 9%), transparent 48%),
+    linear-gradient(120deg, #fff, #f8f5fc);
+}
+
+:root[data-theme='light'] .analysis-identity-facts > div {
+  background: rgb(118 82 200 / 3%);
+}
+
+@media (max-width: 680px) {
+  .analysis-page-actions {
+    width: 100%;
+  }
+
+  .analysis-page-actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .analysis-identity {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 15px;
+    padding: 18px;
+  }
+
+  .analysis-identity-mark {
+    width: 52px;
+    height: 52px;
+    border-radius: 17px;
+  }
+
+  .analysis-identity-mark span:first-child {
+    width: 25px;
+    height: 25px;
+  }
+
+  .analysis-identity-mark span:nth-child(2) {
+    width: 36px;
+    height: 15px;
+  }
+
+  .analysis-identity > .status-badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .analysis-identity-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .scan-outcome-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analysis-identity-mark span {
+    animation: none;
+  }
+}
+
 /* The validated report gets its own editorial hero and dimensional material visual. */
 .analysis-report:not(.analysis-report-unavailable) {
   position: relative;
