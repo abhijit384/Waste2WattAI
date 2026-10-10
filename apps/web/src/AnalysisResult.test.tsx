@@ -62,7 +62,11 @@ it('renders qualitative evidence, user mass, unknown factors and human review', 
   ).toBe('2 kg');
   expect(screen.getByText(/RECORDED · APPROXIMATE/)).toBeTruthy();
   expect(screen.getByText(/Human review recommended before sorting/)).toBeTruthy();
-  expect(screen.getByText('A verified conversion factor is required.')).toBeTruthy();
+  expect(
+    screen.getByText('No reviewed factor matches this material, pathway, and region.'),
+  ).toBeTruthy();
+  expect(screen.getByRole('note', { name: 'Qualitative impact pathway' })).toBeTruthy();
+  expect(screen.getByText('No verified pathway')).toBeTruthy();
   expect(screen.getByText(/not a calibrated probability/)).toBeTruthy();
 
   cleanup();
@@ -78,6 +82,52 @@ it('renders qualitative evidence, user mass, unknown factors and human review', 
   render(<AnalysisResult result={unavailable} />);
   expect(screen.getByRole('heading', { name: 'We couldn’t validate this analysis' })).toBeTruthy();
   expect(screen.queryByText('Mixed')).toBeNull();
+});
+it('shows a conditional qualitative recovery opportunity without inventing impact figures', () => {
+  const result = analysisResultSchema.parse({
+    schemaVersion: '1',
+    classification: {
+      outcome: 'CLASSIFIED',
+      primaryCategory: 'PAPER_CARDBOARD',
+      otherMaterials: ['PLASTIC'],
+      description: 'Paper packaging with attached plastic film',
+      confidenceBand: 'HIGH',
+      contamination: 'NONE_VISIBLE',
+      separationConcerns: ['Separate the attached plastic film'],
+      safetyConcerns: [],
+      humanReviewRecommended: false,
+      materialProportions: null,
+    },
+    recovery: {
+      recommendedPathway: 'RECYCLING',
+      alternativePathways: ['REUSE'],
+      explanation: 'Preserve material value through reuse assessment and accepted recycling.',
+      eligibilityConstraints: ['Verify local facility acceptance.'],
+      warnings: [],
+      actionable: false,
+      facilityStatus: 'UNVERIFIED',
+    },
+    impact: {
+      energyKwh: null,
+      energyBasis: null,
+      carbonBenefitKgCo2e: null,
+      baseline: null,
+      explanation: 'Estimate unavailable — verified conversion factor required.',
+      sources: [],
+      assumptions: ['Mass supplied by user'],
+    },
+    modelId: 'gemini:gemini-3.5-flash',
+    modelVersion: 'gemini-3.5-flash',
+    processedAt: '2026-10-10T16:00:00Z',
+    quantityKg: 0.001,
+    factorCatalogVersion: '2026-10-08.1',
+  });
+
+  render(<AnalysisResult result={result} />);
+  expect(screen.getByText('Recycling opportunity')).toBeTruthy();
+  expect(screen.getByText(/Candidate only. Local facility acceptance/)).toBeTruthy();
+  expect(screen.getAllByText('Not estimated')).toHaveLength(2);
+  expect(screen.getByText(/No energy yield or emissions benefit is claimed/)).toBeTruthy();
 });
 it('describes explicit provider, validation and budget failures without automatic paid retries', () => {
   expect(failureMessage({ failureCode: 'AI_LIMIT_EXCEEDED' })).toContain(

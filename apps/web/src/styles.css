@@ -2968,6 +2968,29 @@ progress {
 .report-impact-section {
   grid-column: 1 / -1;
 }
+.impact-opportunity {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0;
+  padding: 15px;
+  border: 1px solid rgb(139 220 255 / 22%);
+  border-left: 3px solid var(--accent);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgb(139 220 255 / 7%), rgb(197 168 255 / 4%));
+}
+.impact-opportunity strong {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+.impact-opportunity p,
+.impact-opportunity small {
+  margin: 0;
+  color: var(--report-soft);
+  line-height: 1.6;
+}
+.impact-opportunity small {
+  font-size: 10px;
+}
 .impact-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

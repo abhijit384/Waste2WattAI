@@ -234,6 +234,23 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
             </div>
           </div>
           <p className="report-copy">{impact.explanation}</p>
+          <div className="impact-opportunity" role="note" aria-label="Qualitative impact pathway">
+            <span className="report-card-kicker">QUALITATIVE PATHWAY</span>
+            <strong>
+              {recovery.recommendedPathway
+                ? `${label(recovery.recommendedPathway)} opportunity`
+                : 'No verified pathway'}
+            </strong>
+            <p>
+              {recovery.recommendedPathway
+                ? recovery.explanation
+                : 'Material identity, separation, or safety needs review before a recovery opportunity can be described.'}
+            </p>
+            <small>
+              Candidate only. Local facility acceptance and actual material recovery are not
+              verified; this is not a quantified environmental benefit.
+            </small>
+          </div>
           <div className="impact-metrics">
             <div
               className={impact.energyKwh === null ? 'impact-metric is-unknown' : 'impact-metric'}
@@ -246,7 +263,7 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
               </strong>
               <small>
                 {impact.energyKwh === null
-                  ? 'A verified conversion factor is required.'
+                  ? 'No reviewed factor matches this material, pathway, and region.'
                   : `${label(impact.energyBasis)} · estimated potential, not generated electricity`}
               </small>
             </div>
@@ -263,7 +280,7 @@ export function AnalysisResult({ result }: { result: WasteAnalysisResult | undef
               </strong>
               <small>
                 {impact.carbonBenefitKgCo2e === null
-                  ? 'A verified factor and baseline are required.'
+                  ? 'A reviewed comparative factor and named baseline are required.'
                   : `Compared with ${impact.baseline}`}
               </small>
             </div>
