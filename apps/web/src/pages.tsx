@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './auth';
 import type { FrontendConfig } from './config';
 import {
@@ -849,39 +849,66 @@ export function AnalysisPage({ api }: { api: ScanApi }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pollPaused, setPollPaused] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    let attempts = 0;
     setLoading(true);
     setError('');
     setScan(null);
+    setPollPaused(false);
     if (!scanId) {
       setError('This report link does not include a scan. Open the report from scan history.');
       setLoading(false);
       return () => controller.abort();
     }
-    void api
-      .get(scanId, controller.signal)
-      .then((record) => {
-        if (!controller.signal.aborted) setScan(record);
-      })
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted)
-          setError(reason instanceof Error ? reason.message : 'This report could not be loaded.');
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
+    const poll = async () => {
+      try {
+        const record = await api.get(scanId, controller.signal);
+        if (controller.signal.aborted) return;
+        setScan(record);
+        setError('');
+        setLoading(false);
+        if (['COMPLETED', 'FAILED'].includes(record.status)) return;
+        attempts += 1;
+        if (attempts >= 40) {
+          setPollPaused(true);
+          return;
+        }
+        timer = setTimeout(() => void poll(), Math.min(3000 + attempts * 250, 8000));
+      } catch (reason: unknown) {
+        if (controller.signal.aborted) return;
+        setError(reason instanceof Error ? reason.message : 'This report could not be loaded.');
+        setLoading(false);
+        setPollPaused(true);
+      }
+    };
+    void poll();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [api, scanId, refreshKey]);
 
   const isPending = scan !== null && !['COMPLETED', 'FAILED'].includes(scan.status);
   return (
     <div className="analysis-page">
       <PageHeading
-        eyebrow="WASTE INTELLIGENCE · SCAN REPORT"
-        title={scan?.sourceLabel || 'Your analysis report'}
-        description="A private, evidence-led record of what the image analysis could validate."
+        eyebrow={
+          isPending ? 'WASTE INTELLIGENCE · LIVE STATUS' : 'WASTE INTELLIGENCE · SCAN REPORT'
+        }
+        title={
+          isPending
+            ? scan?.sourceLabel || 'Preparing your report'
+            : scan?.sourceLabel || 'Your analysis report'
+        }
+        description={
+          isPending
+            ? 'Your submitted scan is moving through the secure analysis workflow.'
+            : 'A private, evidence-led record of what the image analysis could validate.'
+        }
         action={
           <div className="analysis-page-actions">
             <Link to="/history" className="button secondary">
@@ -964,11 +991,69 @@ export function AnalysisPage({ api }: { api: ScanApi }) {
             </>
           )}
           {isPending && (
-            <section className="panel analysis-pending-panel">
-              <AnalysisLoading status={scan.status} />
-              <button className="button secondary" onClick={() => setRefreshKey((key) => key + 1)}>
-                Refresh report status
-              </button>
+            <section className="analysis-progress-panel panel" aria-label="Scan progress">
+              <div className="analysis-progress-heading">
+                <div className="analysis-progress-visual" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <div>
+                  <p className="eyebrow">SECURE ANALYSIS · {scan.status}</p>
+                  <h2>Following your scan</h2>
+                  <p>
+                    We check the saved server status and show a report only after its result passes
+                    validation. This screen does not estimate completion time or invent progress.
+                  </p>
+                </div>
+              </div>
+              <ol className="analysis-progress-rail" aria-label="Scan processing stages">
+                {(['CREATED', 'UPLOADING', 'UPLOADED', 'PROCESSING', 'COMPLETED'] as const).map(
+                  (step, index) => {
+                    const statusOrder = [
+                      'CREATED',
+                      'UPLOADING',
+                      'UPLOADED',
+                      'PROCESSING',
+                      'COMPLETED',
+                    ];
+                    const currentIndex = statusOrder.indexOf(scan.status);
+                    const complete = index < currentIndex;
+                    const active = index === currentIndex;
+                    const labels = [
+                      'Scan registered',
+                      'Secure upload',
+                      'Image received',
+                      'Analysis service',
+                      'Validated report',
+                    ];
+                    return (
+                      <li
+                        className={complete ? 'is-complete' : active ? 'is-active' : ''}
+                        key={step}
+                        aria-current={active ? 'step' : undefined}
+                      >
+                        <span>{complete ? '✓' : String(index + 1).padStart(2, '0')}</span>
+                        <small>{labels[index]}</small>
+                      </li>
+                    );
+                  },
+                )}
+              </ol>
+              <AnalysisLoading status={scan.status} paused={pollPaused} />
+              <div className="analysis-progress-footer">
+                <p role="status">
+                  {pollPaused
+                    ? 'Automatic checks paused. Your scan is still saved; check again when ready.'
+                    : 'Status refreshes automatically while this page is open.'}
+                </p>
+                <button
+                  className="button secondary"
+                  onClick={() => setRefreshKey((key) => key + 1)}
+                >
+                  Check status now
+                </button>
+              </div>
             </section>
           )}
         </>
@@ -978,6 +1063,7 @@ export function AnalysisPage({ api }: { api: ScanApi }) {
 }
 
 export function ScanPage({ api }: { api: ScanApi }) {
+  const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -985,11 +1071,8 @@ export function ScanPage({ api }: { api: ScanApi }) {
   const externalProcessingConsent = true;
   const [error, setError] = useState('');
   const [status, setStatus] = useState<ScanStatus | null>(null);
-  const [scan, setScan] = useState<WasteScan | null>(null);
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [polling, setPolling] = useState(false);
-  const [pollStopped, setPollStopped] = useState(false);
   const [scanId, setScanId] = useState('');
   const camera = useRef<HTMLInputElement>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -1014,49 +1097,8 @@ export function ScanPage({ api }: { api: ScanApi }) {
     setFile(next);
     setError('');
     setStatus(null);
-    setScan(null);
     setScanId('');
-    setPollStopped(false);
   };
-  useEffect(() => {
-    if (!scanId || !polling) return;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    let attempts = 0;
-    const poll = async () => {
-      try {
-        const record = await api.get(scanId, controller.signal);
-        if (controller.signal.aborted) return;
-        setScan(record);
-        setStatus(record.status);
-        if (['FAILED', 'COMPLETED'].includes(record.status)) {
-          setPolling(false);
-          return;
-        }
-        setError('');
-      } catch (e) {
-        if (controller.signal.aborted) return;
-        setError(e instanceof Error ? e.message : 'Status could not be refreshed.');
-      }
-      attempts++;
-      if (attempts >= 40) {
-        setPolling(false);
-        setPollStopped(true);
-        return;
-      }
-      timer = setTimeout(
-        () => {
-          void poll();
-        },
-        Math.min(3000 + attempts * 250, 8000),
-      );
-    };
-    void poll();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [api, scanId, polling]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!file || busy) return;
@@ -1082,7 +1124,6 @@ export function ScanPage({ api }: { api: ScanApi }) {
     operation.current = controller;
     setBusy(true);
     setError('');
-    setPollStopped(false);
     try {
       const created = scanId
         ? { scanId, status: 'CREATED' as const }
@@ -1101,7 +1142,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
       setProgress(0);
       await uploadImage(file, upload, setProgress, controller.signal);
       setStatus('UPLOADED');
-      setPolling(true);
+      navigate(`/analysis/${created.scanId}`, { replace: true });
     } catch (e) {
       if (!controller.signal.aborted)
         setError(e instanceof Error ? e.message : 'Upload could not finish. Please retry.');
@@ -1109,8 +1150,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
       if (!controller.signal.aborted) setBusy(false);
     }
   };
-  const locked =
-    busy || polling || ['COMPLETED', 'FAILED', 'UPLOADED', 'PROCESSING'].includes(status ?? '');
+  const locked = busy || ['COMPLETED', 'FAILED', 'UPLOADED', 'PROCESSING'].includes(status ?? '');
   return (
     <>
       <PageHeading
@@ -1270,71 +1310,25 @@ export function ScanPage({ api }: { api: ScanApi }) {
               <p>{progress}% uploaded</p>
             </>
           )}
-          {status === 'FAILED' ? (
-            <div className="scan-outcome-card scan-outcome-failed" role="status">
-              <span className="scan-outcome-orbit" aria-hidden="true">
-                ?
-              </span>
-              <div>
-                <p className="eyebrow">REPORT STATUS · NEEDS REVIEW</p>
-                <h3>The image was saved; analysis is unavailable</h3>
-                <p>{failureMessage(scan ?? {})}</p>
-                {scanId && (
-                  <Link className="button secondary" to={`/analysis/${scanId}`}>
-                    Open scan report <span aria-hidden="true">↗</span>
-                  </Link>
-                )}
-              </div>
-            </div>
-          ) : status === 'COMPLETED' ? (
-            <div className="scan-outcome-card scan-outcome-complete" role="status">
-              <span className="scan-outcome-orbit" aria-hidden="true">
-                ✓
-              </span>
-              <div>
-                <p className="eyebrow">REPORT STATUS · VALIDATED</p>
-                <h3>Your structured report is ready</h3>
-                <p>
-                  Open the dedicated report to review material evidence, sorting guidance and
-                  limitations.
-                </p>
-                {scanId && (
-                  <Link className="button primary" to={`/analysis/${scanId}`}>
-                    View analysis report <span aria-hidden="true">↗</span>
-                  </Link>
-                )}
-              </div>
-            </div>
-          ) : (
-            <AnalysisLoading status={status} paused={pollStopped} />
+          {status === 'CREATED' && (
+            <p className="upload-stage-message" role="status">
+              Preparing your private image upload…
+            </p>
           )}
-          {pollStopped && (
-            <button
-              className="button secondary"
-              onClick={() => {
-                setPollStopped(false);
-                setPolling(true);
-              }}
-            >
-              Refresh status
-            </button>
+          {status === 'UPLOADED' && (
+            <p className="upload-stage-message" role="status">
+              Upload complete. Opening your scan progress page…
+            </p>
+          )}
+          {status === 'UPLOADING' && (
+            <p className="upload-stage-message" role="status">
+              Your image is being transferred securely. The progress and analysis report open after
+              the upload finishes.
+            </p>
           )}
           <Link to="/history" className="text-link">
             View scan history ↗
           </Link>
-          {['FAILED', 'COMPLETED'].includes(status) && (
-            <button
-              className="button secondary"
-              onClick={() => {
-                setFile(null);
-                setScan(null);
-                setStatus(null);
-                setScanId('');
-              }}
-            >
-              Start another scan
-            </button>
-          )}
         </section>
       )}
     </>

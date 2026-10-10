@@ -200,6 +200,17 @@ describe('file validation', () => {
   });
 });
 describe('important application states', () => {
+  function renderScanFlow(api: ScanApi) {
+    render(
+      <MemoryRouter initialEntries={['/scan']}>
+        <Routes>
+          <Route path="/scan" element={<ScanPage api={api} />} />
+          <Route path="/analysis/:scanId" element={<AnalysisPage api={api} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
   function prepareUpload(api: ScanApi) {
     vi.stubGlobal(
       'URL',
@@ -219,7 +230,7 @@ describe('important application states', () => {
       fields: {},
       expiresAt: '2026-10-08T00:05:00.000Z',
     });
-    wrap(<ScanPage api={api} />);
+    renderScanFlow(api);
     fireEvent.change(screen.getByLabelText('Select waste image'), {
       target: { files: [new File(['test-only-image'], 'sample.png', { type: 'image/png' })] },
     });
@@ -241,12 +252,40 @@ describe('important application states', () => {
       updatedAt: '2026-10-08T00:00:00.000Z',
       failureCode: 'ANALYSIS_NOT_IMPLEMENTED',
     });
-    prepareUpload(api);
-    expect(await screen.findByText(/Your image was received/)).toBeTruthy();
-    expect(screen.queryByRole('checkbox')).toBeNull();
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL() {
+          return 'blob:test-preview';
+        }
+        static revokeObjectURL() {}
+      },
+    );
+    vi.mocked(api.create).mockResolvedValue({
+      scanId: '10000000-0000-4000-8000-000000000001',
+      status: 'CREATED',
+    });
+    vi.mocked(api.upload).mockResolvedValue({
+      url: 'https://bucket.s3.amazonaws.com',
+      fields: {},
+      expiresAt: '2026-10-08T00:05:00.000Z',
+    });
+    renderScanFlow(api);
+    fireEvent.change(screen.getByLabelText('Select waste image'), {
+      target: { files: [new File(['test-only-image'], 'sample.png', { type: 'image/png' })] },
+    });
+    expect(screen.getByText('Add a little context')).toBeTruthy();
+    expect(screen.queryByText('Following your scan')).toBeNull();
     expect(
       screen.getByText(/A compressed image may be processed by configured external AI providers/),
     ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Approximate waste quantity'), {
+      target: { value: '2.5' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
+    expect(await screen.findByText(/Your image was received/)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Scan record' })).toBeTruthy();
+    expect(screen.queryByRole('checkbox')).toBeNull();
     expect(document.body.textContent).not.toMatch(/free-tier|zero.cost/i);
     expect(api.create).toHaveBeenCalledWith(
       { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: true },
