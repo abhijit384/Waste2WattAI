@@ -1,7 +1,10 @@
 """Zero-cost provider policy, consent, order, cancellation, and Bedrock gates."""
 
+import io
+import json
 import sys
 import unittest
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event
@@ -218,13 +221,35 @@ class ExternalAiPolicyTests(unittest.TestCase):
                 on_call=lambda: called.append("gemini-3.5"),
             ),
         }
-        result = sequential_free_model_call(
-            b"jpeg", ENVIRONMENT, adapters, external_processing_consent=True
-        )
+        output = io.StringIO()
+        with redirect_stdout(output):
+            result = sequential_free_model_call(
+                b"jpeg",
+                ENVIRONMENT,
+                adapters,
+                external_processing_consent=True,
+                request_id="request-123",
+            )
         self.assertEqual(result.provider, "gemini")
         self.assertEqual(result.model_id, "gemini-3.5-flash")
         self.assertEqual(called, ["gemini", "groq", "openrouter", "gemini-3.5"])
         self.assertEqual(tuple(adapter.calls for adapter in adapters.values()), (1, 1, 1, 1))
+        log_events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(
+            [(event["provider"], event["modelId"]) for event in log_events],
+            [
+                ("gemini", "gemini-3.6-flash"),
+                ("groq", "qwen/qwen3.8-27b"),
+                ("openrouter", "dots-studio/dots-3-note-preview:free"),
+            ],
+        )
+        self.assertTrue(all(event["event"] == "ExternalProviderFailure" for event in log_events))
+        self.assertTrue(all("durationMs" in event for event in log_events))
+        self.assertTrue(all(event["requestId"] == "request-123" for event in log_events))
+        self.assertNotIn("secret response", output.getvalue())
+        self.assertNotIn("test-gemini-key", output.getvalue())
+        self.assertNotIn("test-groq-key", output.getvalue())
+        self.assertNotIn("test-openrouter-key", output.getvalue())
 
     def test_valid_uncertainty_stops_the_chain(self):
         called = []

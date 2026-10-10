@@ -6,6 +6,8 @@ per-request quota queries: free quotas are enforced by each provider, and quota
 errors move the single request to the next independently configured free model.
 """
 
+import json
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -154,6 +156,7 @@ def sequential_free_model_call(
     *,
     external_processing_consent: bool,
     cancellation: Event | None = None,
+    request_id: str | None = None,
 ):
     """Run one request at a time, returning the first schema-valid result.
 
@@ -170,16 +173,24 @@ def sequential_free_model_call(
         adapter = adapters.get((spec.provider, spec.model_id))
         if adapter is None:
             continue
+        started_at = time.monotonic()
         try:
             result = adapter.analyze(image, cancellation)
         except InferenceCancelled:
             return None
-        except PaidUsageDetected:
+        except PaidUsageDetected as error:
+            _log_provider_failure(
+                spec, "paid_usage_detected", error, started_at, request_id=request_id
+            )
             return None
-        except ZeroCostNotVerified:
+        except ZeroCostNotVerified as error:
+            _log_provider_failure(
+                spec, "zero_cost_unverified", error, started_at, request_id=request_id
+            )
             return None
-        except Exception:
-            # Provider exception bodies are deliberately neither inspected nor logged.
+        except Exception as error:
+            # Log only allowlisted metadata; never inspect exception text or response bodies.
+            _log_provider_failure(spec, "provider_error", error, started_at, request_id=request_id)
             continue
         if cancellation is not None and cancellation.is_set():
             return None
@@ -189,11 +200,48 @@ def sequential_free_model_call(
             from .intelligence import AnalysisFailure, validate
 
             classification = validate(result.classification)
-        except (AnalysisFailure, AttributeError, TypeError):
+        except (AnalysisFailure, AttributeError, TypeError) as error:
+            _log_provider_failure(
+                spec,
+                "invalid_result_schema",
+                error,
+                started_at,
+                result.status_code,
+                request_id,
+            )
             continue
         result.classification = classification
         return result
     return None
+
+
+def _log_provider_failure(spec, category, error, started_at, status_code=None, request_id=None):
+    """Emit safe provider diagnostics without exception text, images, or secrets."""
+
+    if status_code is None:
+        status_code = getattr(error, "status_code", None)
+    if isinstance(status_code, bool) or not isinstance(status_code, int):
+        status_code = None
+    elif not 100 <= status_code <= 599:
+        status_code = None
+    if category == "provider_error":
+        if type(error).__name__ == "InvalidProviderResponse":
+            category = "invalid_response"
+        elif status_code is not None:
+            category = "http_error"
+        else:
+            category = "transport_error"
+    event = {
+        "event": "ExternalProviderFailure",
+        "provider": spec.provider,
+        "modelId": spec.model_id,
+        "errorCategory": category,
+        "httpStatus": status_code,
+        "durationMs": round((time.monotonic() - started_at) * 1000),
+    }
+    if isinstance(request_id, str) and request_id.isascii() and 0 < len(request_id) <= 128:
+        event["requestId"] = request_id
+    print(json.dumps(event, separators=(",", ":")))
 
 
 def _flag(environment: Mapping[str, str], name: str) -> bool | None:

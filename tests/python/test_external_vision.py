@@ -92,6 +92,8 @@ class ExternalVisionAdapterTests(unittest.TestCase):
         self.assertEqual(
             request["body"]["generationConfig"]["responseMimeType"], "application/json"
         )
+        self.assertNotIn("candidateCount", request["body"]["generationConfig"])
+        self.assertNotIn("temperature", request["body"]["generationConfig"])
         self.assertEqual(
             request["body"]["contents"][0]["parts"][1]["inline_data"]["mime_type"],
             "image/jpeg",

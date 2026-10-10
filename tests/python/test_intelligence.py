@@ -452,11 +452,12 @@ class IntelligenceTests(unittest.TestCase):
         logged = io.StringIO()
         with redirect_stdout(logged):
             self.assertEqual(
-                runtime.task("AnalyzeWithBedrock", event, "execution-test"),
+                runtime.task("AnalyzeWithBedrock", event, "execution-test", "request-test"),
                 {"status": "PROCESSING"},
             )
         external.assert_called_once()
         self.assertIs(external.call_args.args[1], True)
+        self.assertEqual(external.call_args.args[2], "request-test")
         self.assertEqual(bedrock.converse.call_count, 1)
         self.assertEqual(record["pendingModelId"], "gemini-3.6-flash")
         self.assertEqual(record["pendingModelVersion"], "gemini:gemini-3.6-flash")

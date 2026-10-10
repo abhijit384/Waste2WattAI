@@ -144,7 +144,7 @@ class AnalysisRuntime:
         except ClientError:
             pass  # Existing terminal status/claim wins; never overwrite another execution.
 
-    def task(self, action, event, execution):
+    def task(self, action, event, execution, request_id=None):
         if not self.enabled:
             raise AnalysisFailure("ANALYSIS_UNAVAILABLE")
         if not execution or not isinstance(execution, str) or len(execution) > 256:
@@ -207,7 +207,7 @@ class AnalysisRuntime:
                         if bedrock_failure_code == "INVALID_MODEL_OUTPUT":
                             raise AnalysisFailure(bedrock_failure_code)
                         raise AnalysisFailure("ANALYSIS_UNAVAILABLE")
-                    external_result = self.external_analyzer(clean_image, True)
+                    external_result = self.external_analyzer(clean_image, True, request_id)
                     if external_result is None:
                         raise AnalysisFailure("ANALYSIS_UNAVAILABLE")
                     classification = validate(external_result.classification)
@@ -385,10 +385,11 @@ def handler(event, context):
             int(os.environ.get("AI_DAILY_LIMIT", "50")),
             int(os.environ.get("AI_USER_DAILY_LIMIT", "5")),
             (
-                lambda image, consent: analyze_with_free_providers(
+                lambda image, consent, request_id: analyze_with_free_providers(
                     image,
                     provider_environment,
                     external_processing_consent=consent,
+                    request_id=request_id,
                 )
                 if external_enabled
                 else None
@@ -396,7 +397,9 @@ def handler(event, context):
             bedrock_enabled,
         )
     try:
-        return _runtime.task(event["action"], event["event"], event["executionArn"])
+        return _runtime.task(
+            event["action"], event["event"], event["executionArn"], context.aws_request_id
+        )
     except AnalysisFailure as failure:
         print(json.dumps({"requestId": context.aws_request_id, "errorCode": str(failure)}))
         raise AnalysisFailure(str(failure)) from None

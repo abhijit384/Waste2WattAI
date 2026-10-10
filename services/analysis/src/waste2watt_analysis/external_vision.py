@@ -192,11 +192,9 @@ class GeminiVisionAdapter(_BaseVisionAdapter):
                 }
             ],
             "generationConfig": {
-                "candidateCount": 1,
                 "maxOutputTokens": MAX_OUTPUT_TOKENS,
                 "responseMimeType": "application/json",
                 "responseSchema": _gemini_schema(SCHEMAS["classification"]),
-                "temperature": 0,
             },
         }
         return (
@@ -363,7 +361,7 @@ def build_adapters(environment, *, transport: Callable = post_json):
 
 
 def analyze_with_free_providers(
-    image, environment, *, external_processing_consent, cancellation=None
+    image, environment, *, external_processing_consent, cancellation=None, request_id=None
 ):
     """Resolve the approved sequential chain without exposing provider exceptions."""
 
@@ -375,6 +373,7 @@ def analyze_with_free_providers(
         build_adapters(environment),
         external_processing_consent=external_processing_consent,
         cancellation=cancellation,
+        request_id=request_id,
     )
 
 
