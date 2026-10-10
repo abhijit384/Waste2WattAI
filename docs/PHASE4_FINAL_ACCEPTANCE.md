@@ -46,10 +46,13 @@ The signup page now includes Spam/Junk guidance and accurately explains that
 Cognito currently uses its shared sender. Read-only checks found no verified SES
 sender identity and SES production access is still disabled; the account has no
 Route 53 hosted zone. No AWS email or DNS settings were changed. A custom sender
-cannot be configured until the owner provides a domain they control, DNS access,
-and intended From/Reply-To addresses. SES production access will also be required
-for a custom sender to mail arbitrary signup addresses. Until then, OTP delivery
-quality remains an acceptance blocker.
+cannot be configured because the owner confirmed they do not control a sender
+domain. The supplied `noreplycarecue@gmail.com` address may be used as a Reply-To
+contact, but a Gmail From address sent through a third party cannot be
+domain-authenticated here and risks further spam placement. SES production access
+would also be required for a custom sender to mail arbitrary signup addresses.
+Until an owned domain is available, OTP inbox placement remains an acceptance
+blocker.
 
 The API logger now routes successful status codes to INFO and error responses to
 ERROR while serializing only request ID, route, status, and safe error code. Tests

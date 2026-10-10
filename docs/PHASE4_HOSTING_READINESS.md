@@ -122,8 +122,15 @@ controls. For a domain, verify it in SES in `us-east-1`, publish SES DKIM record
 and aligned SPF/DMARC DNS records, request SES production access, then configure
 Cognito to use that verified identity. AWS credits alone cannot establish domain
 ownership or remove SES sandbox restrictions. No email/DNS/AWS setting was changed.
-The custom-sender work remains blocked until the owner supplies the domain, DNS
-control, and intended From/Reply-To addresses. See the linked AWS [Cognito email
+The owner confirmed on 2026-10-10 that they do not own a sender domain. The supplied
+`noreplycarecue@gmail.com` address can be used as a reply contact, but not as an
+authenticated sender through a domain-level SES setup. Google warns that messages
+claiming a Gmail From address when sent by a third party can be rejected or treated
+as spam; AWS also does not permit a custom MAIL FROM domain on a domain the sender
+does not own. Therefore, retain Cognito's shared sender until an owned domain is
+available. See [Google's sender guidelines](https://support.google.com/mail/answer/81126?hl=en-GB),
+AWS [SES custom MAIL FROM](https://docs.aws.amazon.com/ses/latest/dg/mail-from.html),
+and the linked AWS [Cognito email
 configuration](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-email.html),
 [SES DKIM](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim.html),
 [SES authentication](https://docs.aws.amazon.com/ses/latest/dg/email-authentication-methods.html),
