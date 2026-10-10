@@ -288,7 +288,7 @@ describe('important application states', () => {
     );
   }
 
-  function prepareUpload(api: ScanApi, options: { submit?: boolean; consent?: boolean } = {}) {
+  function prepareUpload(api: ScanApi, options: { submit?: boolean } = {}) {
     vi.stubGlobal(
       'URL',
       class extends URL {
@@ -314,12 +314,10 @@ describe('important application states', () => {
     fireEvent.change(screen.getByLabelText('Approximate waste quantity'), {
       target: { value: '2.5' },
     });
-    if (options.consent)
-      fireEvent.click(screen.getByRole('checkbox', { name: /Allow external AI analysis/ }));
     if (options.submit !== false)
       fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
   }
-  it('keeps external processing disabled unless the user opts in', async () => {
+  it('uses external analysis by default with a clear image-processing notice', async () => {
     const api = stubApi();
     vi.mocked(uploadImage).mockResolvedValue();
     vi.mocked(api.get).mockResolvedValue({
@@ -356,10 +354,10 @@ describe('important application states', () => {
     });
     expect(screen.getByText('Add a little context')).toBeTruthy();
     expect(screen.queryByText('Following your scan')).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /Allow external AI analysis/ })).toBeNull();
     expect(
-      (screen.getByRole('checkbox', { name: /Allow external AI analysis/ }) as HTMLInputElement)
-        .checked,
-    ).toBe(false);
+      screen.getByText(/A compressed copy may be sent to configured external AI providers/),
+    ).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Approximate waste quantity'), {
       target: { value: '2.5' },
     });
@@ -369,13 +367,13 @@ describe('important application states', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(document.body.textContent).not.toMatch(/free-tier|zero.cost/i);
     expect(api.create).toHaveBeenCalledWith(
-      { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: false },
+      { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: true },
       expect.any(AbortSignal),
     );
     expect(api.get).toHaveBeenCalledTimes(1);
     expect(uploadImage).toHaveBeenCalledTimes(1);
   });
-  it('sends external-processing consent only after the checkbox is selected', async () => {
+  it('sends external-processing consent automatically for submitted scans', async () => {
     const api = stubApi();
     vi.mocked(uploadImage).mockResolvedValue();
     vi.mocked(api.get).mockResolvedValue({
@@ -389,9 +387,7 @@ describe('important application states', () => {
       failureCode: 'ANALYSIS_UNAVAILABLE',
     });
     prepareUpload(api, { submit: false });
-    const consent = screen.getByRole('checkbox', { name: /Allow external AI analysis/ });
-    expect((consent as HTMLInputElement).checked).toBe(false);
-    fireEvent.click(consent);
+    expect(screen.queryByRole('checkbox', { name: /Allow external AI analysis/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
     expect(await screen.findByRole('heading', { name: 'Scan record' })).toBeTruthy();
     expect(api.create).toHaveBeenCalledWith(
@@ -460,6 +456,8 @@ describe('important application states', () => {
   });
   it('provides camera enhancement, validation and a disabled empty submission', () => {
     wrap(<ScanPage api={stubApi()} />);
+    expect(screen.getByRole('button', { name: 'Take photo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose photo' })).toBeTruthy();
     expect(screen.getByLabelText('Capture waste image').getAttribute('capture')).toBe(
       'environment',
     );

@@ -12,9 +12,12 @@
 - External AI inference is allowed only under the user's explicit zero-cost policy:
   paid external usage must remain false, the maximum external AI cost is USD 0,
   and only a currently verified free model/account/quota may be used. Unknown or
-  changed pricing disables that provider. Require explicit external-processing
-  consent for any image sent outside AWS. Keep external inference disabled by
-  default; Bedrock remains subject to its separate AWS authorization/spending gate.
+  changed pricing disables that provider. The project owner has explicitly
+  authorized the public scan flow to send a compressed copy of every submitted
+  image to eligible external AI providers by default, without a per-scan checkbox.
+  Keep a clear image-processing disclosure beside the upload controls. This does
+  not authorize paid external use; Bedrock remains subject to its separate AWS
+  authorization/spending gate.
 - Add dependencies only for implemented work. CDK and local bundling are authorized;
   Amplify and AWS SDK v3 are authorized in Phase 3. Do not add AI provider SDKs until
   a free model and account are verified and its adapter is being implemented.

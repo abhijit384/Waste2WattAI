@@ -1073,7 +1073,6 @@ export function ScanPage({ api }: { api: ScanApi }) {
   const [preview, setPreview] = useState('');
   const [quantity, setQuantity] = useState('');
   const [source, setSource] = useState('');
-  const [externalProcessingConsent, setExternalProcessingConsent] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [progress, setProgress] = useState(0);
@@ -1115,7 +1114,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
     const input = createScanRequestSchema.safeParse({
       quantityKg: Number(quantity),
       unit: 'kg',
-      externalProcessingConsent,
+      externalProcessingConsent: true,
       ...(source.trim() ? { sourceLabel: source.trim() } : {}),
     });
     if (!input.success) {
@@ -1187,14 +1186,14 @@ export function ScanPage({ api }: { api: ScanApi }) {
                 disabled={locked}
                 onClick={() => camera.current?.click()}
               >
-                Take Photo / Choose Image
+                Take photo
               </button>
               <button
                 className="button secondary"
                 disabled={locked}
                 onClick={() => picker.current?.click()}
               >
-                Choose Image
+                Choose photo
               </button>
             </div>
           </div>
@@ -1275,24 +1274,11 @@ export function ScanPage({ api }: { api: ScanApi }) {
           <div className="privacy-note">
             <span className="live-dot" />
             <p>
-              Your original image is stored privately with your account. External processing is
-              optional and requires your permission.
+              Your original image is stored privately with your account. A compressed copy may be
+              sent to configured external AI providers to analyze every scan. Avoid images with
+              faces, documents, or other personal information.
             </p>
           </div>
-          <label className="external-consent" htmlFor="external-processing-consent">
-            <input
-              id="external-processing-consent"
-              type="checkbox"
-              checked={externalProcessingConsent}
-              disabled={locked}
-              onChange={(event) => setExternalProcessingConsent(event.target.checked)}
-            />
-            <span>
-              Allow external AI analysis for this scan. A compressed image may be sent to an
-              external provider under its privacy policy. If you leave this unchecked, the image
-              stays within AWS; a result may be unavailable while Bedrock analysis is disabled.
-            </span>
-          </label>
           {error && <ErrorNotice message={error} />}
           <button className="button primary full-width" disabled={!file || locked} type="submit">
             {busy
