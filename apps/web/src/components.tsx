@@ -196,7 +196,7 @@ export function Layout() {
         <div className="sidebar-note">
           <span className="live-dot" />
           <strong>Foundation workspace</strong>
-          <p>AI analysis is currently unavailable.</p>
+          <p>Reports show validated results when an analysis provider is available.</p>
         </div>
       </aside>
       <div className="workspace">

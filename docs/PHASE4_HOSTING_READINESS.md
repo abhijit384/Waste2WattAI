@@ -108,6 +108,28 @@ production access, and Cognito sender configuration. SES/domain/DNS/IAM changes
 and associated charges are outside this preparation and have not been performed.
 For this demo, the recipient can mark the expected message as not spam themselves.
 
+### OTP spam-folder follow-up (2026-10-10)
+
+The user reports that Cognito verification codes arrive only in spam. A new read-only
+AWS check confirmed the user pool still uses `COGNITO_DEFAULT`; the SES account has
+no verified email/domain identities, SES production access is disabled, and this
+account has no Route 53 hosted zones. The signup page now tells users to check
+Spam/Junk and explains the shared-sender limitation. This reduces confusion but
+does not change message authentication or inbox placement.
+
+A durable sender change requires an email address or domain the project owner
+controls. For a domain, verify it in SES in `us-east-1`, publish SES DKIM records
+and aligned SPF/DMARC DNS records, request SES production access, then configure
+Cognito to use that verified identity. AWS credits alone cannot establish domain
+ownership or remove SES sandbox restrictions. No email/DNS/AWS setting was changed.
+The custom-sender work remains blocked until the owner supplies the domain, DNS
+control, and intended From/Reply-To addresses. See the linked AWS [Cognito email
+configuration](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-email.html),
+[SES DKIM](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim.html),
+[SES authentication](https://docs.aws.amazon.com/ses/latest/dg/email-authentication-methods.html),
+and [DMARC](https://docs.aws.amazon.com/ses/latest/dg/email-authentication-dmarc.html)
+guidance.
+
 ## Security verification
 
 | Control                 | Result and limitation                                                                                                                                                     |

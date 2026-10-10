@@ -13,3 +13,5 @@ applications:
             value: strict-origin-when-cross-origin
           - key: Permissions-Policy
             value: camera=(self), microphone=(), geolocation=()
+          - key: Content-Security-Policy
+            value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://c2ntcib53m.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://waste2wattdatastack-dev-wasteimages44ce59b0-tjehgjrnkkpe.s3.us-east-1.amazonaws.com; upgrade-insecure-requests"

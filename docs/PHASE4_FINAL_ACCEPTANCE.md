@@ -38,6 +38,19 @@ Hosted authentication results (user-confirmed manual tests):
 
 No passwords, verification codes, or tokens were shared in chat.
 
+### OTP deliverability follow-up (2026-10-10)
+
+The user reports that verification codes are delivered to Spam/Junk. Signup and
+verification remain functionally successful, but inbox placement is not accepted.
+The signup page now includes Spam/Junk guidance and accurately explains that
+Cognito currently uses its shared sender. Read-only checks found no verified SES
+sender identity and SES production access is still disabled; the account has no
+Route 53 hosted zone. No AWS email or DNS settings were changed. A custom sender
+cannot be configured until the owner provides a domain they control, DNS access,
+and intended From/Reply-To addresses. SES production access will also be required
+for a custom sender to mail arbitrary signup addresses. Until then, OTP delivery
+quality remains an acceptance blocker.
+
 The API logger now routes successful status codes to INFO and error responses to
 ERROR while serializing only request ID, route, status, and safe error code. Tests
 cover severity routing, structured field retention, request correlation, and the

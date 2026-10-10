@@ -140,7 +140,7 @@ export function Landing() {
             <div className="orbit-card orbit-evidence">
               <span>02 / EVIDENCE</span>
               <strong>Clarity before calculation.</strong>
-              <p>Analysis integration in development</p>
+              <p>Review structured results, evidence, and limitations.</p>
             </div>
             <div className="visual-caption">
               <span className="live-dot" /> A connected system for better decisions
@@ -164,8 +164,8 @@ export function Landing() {
             ],
             [
               '02',
-              'Build your intelligence',
-              'Follow scan status and revisit your history. Future analysis will keep evidence and uncertainty visible.',
+              'Review material evidence',
+              'Receive a structured image assessment when an approved analysis provider is available, then review its evidence and limitations.',
             ],
             [
               '03',
@@ -241,6 +241,11 @@ export function AuthPage({ config }: { config: FrontendConfig }) {
             <>
               <h2>Welcome to Waste2Watt</h2>
               <p className="muted">Sign in or create your workspace.</p>
+              <p className="auth-delivery-note" role="note">
+                Verification emails can land in Spam or Junk. Check those folders if your code is
+                missing. Waste2Watt is currently using a shared sender; a verified sender domain is
+                needed to improve inbox placement.
+              </p>
               <Suspense fallback={<p role="status">Loading secure sign-in…</p>}>
                 <CognitoForm />
               </Suspense>
@@ -1068,7 +1073,7 @@ export function ScanPage({ api }: { api: ScanApi }) {
   const [preview, setPreview] = useState('');
   const [quantity, setQuantity] = useState('');
   const [source, setSource] = useState('');
-  const externalProcessingConsent = true;
+  const [externalProcessingConsent, setExternalProcessingConsent] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [progress, setProgress] = useState(0);
@@ -1270,10 +1275,24 @@ export function ScanPage({ api }: { api: ScanApi }) {
           <div className="privacy-note">
             <span className="live-dot" />
             <p>
-              Your scan belongs to your account. A compressed image may be processed by configured
-              external AI providers under their privacy policies.
+              Your original image is stored privately with your account. External processing is
+              optional and requires your permission.
             </p>
           </div>
+          <label className="external-consent" htmlFor="external-processing-consent">
+            <input
+              id="external-processing-consent"
+              type="checkbox"
+              checked={externalProcessingConsent}
+              disabled={locked}
+              onChange={(event) => setExternalProcessingConsent(event.target.checked)}
+            />
+            <span>
+              Allow external AI analysis for this scan. A compressed image may be sent to an
+              external provider under its privacy policy. If you leave this unchecked, the image
+              stays within AWS; a result may be unavailable while Bedrock analysis is disabled.
+            </span>
+          </label>
           {error && <ErrorNotice message={error} />}
           <button className="button primary full-width" disabled={!file || locked} type="submit">
             {busy
@@ -1339,25 +1358,29 @@ export function Settings() {
   const [firstName, setFirstName] = useState(auth.profile?.firstName ?? '');
   const [profileMessage, setProfileMessage] = useState('');
   const [signOutError, setSignOutError] = useState('');
+  const [requestDraft, setRequestDraft] = useState('');
+  const [requestNotice, setRequestNotice] = useState('');
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     setFirstName(auth.profile?.firstName ?? '');
   }, [auth.profile?.firstName]);
 
-  const createSupportUrl = (title: string, body: string) => {
-    const url = new URL('https://github.com/abhijit384/Waste2WattAI/issues/new');
-    url.searchParams.set('title', title);
-    url.searchParams.set('body', body);
-    return url.toString();
+  const prepareRequest = async (kind: 'support' | 'deletion') => {
+    const draft =
+      kind === 'support'
+        ? 'Waste2Watt AI support request\n\nPlease describe the account or data issue. Do not include passwords, verification codes, API keys, or uploaded images.'
+        : 'Waste2Watt AI account and data deletion request\n\nI am requesting review of deletion for my account and associated scan records and private images. Please confirm the request before taking action. Do not include passwords, verification codes, API keys, or image files.';
+    setRequestDraft(draft);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(draft);
+      setRequestNotice('Request draft copied. Send it through the project’s support channel.');
+    } catch {
+      setRequestNotice(
+        'Draft shown below. Copy it and send it through the project’s support channel.',
+      );
+    }
   };
-  const supportUrl = createSupportUrl(
-    'Waste2Watt AI account support request',
-    'Please describe the account or data issue. Do not include passwords, authentication codes, API keys, or uploaded images.',
-  );
-  const deletionUrl = createSupportUrl(
-    'Request deletion of my Waste2Watt AI account and data',
-    'I am requesting deletion of my Waste2Watt AI account and its associated scan records and private images. Please confirm the request before taking action. Do not include passwords, verification codes, API keys, or image files.',
-  );
 
   return (
     <>
@@ -1452,14 +1475,18 @@ export function Settings() {
             >
               Sign out
             </button>
-            <a className="button danger-link" href={deletionUrl} target="_blank" rel="noreferrer">
-              Request account deletion
-            </a>
+            <button
+              className="button danger-link"
+              type="button"
+              onClick={() => void prepareRequest('deletion')}
+            >
+              Prepare account deletion request
+            </button>
           </div>
           <p className="muted small">
             Deletion requests are reviewed with the associated scan records and private images so
-            account data is handled together. The request link requires access to the project
-            support tracker.
+            account data is handled together. This prepares a request only; it does not delete your
+            account or data.
           </p>
         </section>
       </div>
@@ -1493,9 +1520,10 @@ export function Settings() {
           <details>
             <summary>How can I request help or account deletion?</summary>
             <p>
-              Contact project support using the link below. Deletion is reviewed together with
-              account-owned scans and images; it is not performed by simply removing your sign-in.
-              Do not include passwords, verification codes, API keys, or image files in a request.
+              Use the request helper below to prepare text for the project owner. Deletion is
+              reviewed together with account-owned scans and images. This page does not send the
+              request or delete your data. Do not include passwords, verification codes, API keys,
+              or image files.
             </p>
           </details>
         </div>
@@ -1503,17 +1531,32 @@ export function Settings() {
           <div>
             <h3>Need a hand?</h3>
             <p className="muted">
-              Contact the Waste2Watt project support team for account and data requests.
+              Prepare a private support request without sending profile or scan data from this page.
             </p>
           </div>
-          <a className="button secondary" href={supportUrl} target="_blank" rel="noreferrer">
-            Contact customer care ↗
-          </a>
+          <button
+            className="button secondary"
+            type="button"
+            onClick={() => void prepareRequest('support')}
+          >
+            Prepare support request
+          </button>
         </div>
         <p className="muted small">
-          Support currently uses the project issue tracker and requires repository access. Never
-          post credentials or private images there.
+          A public support inbox is not configured. Use the project owner’s published contact
+          channel; never send credentials or private images.
         </p>
+        {requestNotice && (
+          <p className="field-help" role="status">
+            {requestNotice}
+          </p>
+        )}
+        {requestDraft && (
+          <label className="support-draft-label" htmlFor="support-request-draft">
+            Request draft
+            <textarea id="support-request-draft" readOnly rows={5} value={requestDraft} />
+          </label>
+        )}
       </section>
     </>
   );

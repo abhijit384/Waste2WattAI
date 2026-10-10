@@ -54,6 +54,26 @@ export function profileFromAttributes(attributes: {
   };
 }
 
+export function profileFromClaims(claims: Record<string, unknown>): UserProfile {
+  const stringClaim = (name: string) => {
+    const value = claims[name];
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+  };
+  const verified = claims.email_verified;
+  const attributes: Parameters<typeof profileFromAttributes>[0] = {};
+  const givenName = stringClaim('given_name');
+  const familyName = stringClaim('family_name');
+  const fullName = stringClaim('name');
+  const email = stringClaim('email');
+  if (givenName) attributes.given_name = givenName;
+  if (familyName) attributes.family_name = familyName;
+  if (fullName) attributes.name = fullName;
+  if (email) attributes.email = email;
+  if (typeof verified === 'boolean') attributes.email_verified = String(verified);
+  else if (typeof verified === 'string') attributes.email_verified = verified;
+  return profileFromAttributes(attributes);
+}
+
 export function profileInitial(profile?: UserProfile): string {
   const name = profile?.firstName || profile?.fullName?.trim().split(/\s+/)[0] || profile?.email;
   return name?.trim().charAt(0).toLocaleUpperCase() || 'A';
@@ -109,17 +129,18 @@ export function AuthProvider({
           setState({ status: 'anonymous' });
           return;
         }
-        setState({ status: 'authenticated', userId: user.userId });
+        const tokenProfile = profileFromClaims(session.tokens.idToken?.payload ?? {});
+        setState({ status: 'authenticated', userId: user.userId, profile: tokenProfile });
         try {
           const attributes = await fetchUserAttributes();
           if (active && sequence === restoreSequence)
             setState({
               status: 'authenticated',
               userId: user.userId,
-              profile: profileFromAttributes(attributes),
+              profile: { ...tokenProfile, ...profileFromAttributes(attributes) },
             });
         } catch {
-          // A profile-attribute lookup must not invalidate an authenticated session.
+          // The signed ID token may still contain profile claims when GetUser is unavailable.
         }
       } catch {
         if (active && sequence === restoreSequence) setState({ status: 'anonymous' });

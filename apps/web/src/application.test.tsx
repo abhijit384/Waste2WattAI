@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { AuthContext, ProtectedRoute, profileFromAttributes, profileInitial } from './auth';
+import {
+  AuthContext,
+  AuthProvider,
+  ProtectedRoute,
+  profileFromAttributes,
+  profileFromClaims,
+  profileInitial,
+} from './auth';
 import { parseFrontendConfig } from './config';
 import { validateImage } from './file-validation';
 import {
@@ -9,6 +16,7 @@ import {
   Dashboard,
   DigitalTwin,
   AnalysisPage,
+  AuthPage,
   ScanPage,
   ScenarioSimulator,
   failureMessage,
@@ -16,12 +24,14 @@ import {
 } from './pages';
 import { ErrorBoundary, ThemeProvider, ThemeToggle } from './components';
 import { createApi, uploadImage, type ScanApi } from './api';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { fetchAuthSession, fetchUserAttributes, getCurrentUser } from 'aws-amplify/auth';
 import { analysisResultSchema } from '@waste2watt/shared';
 
 vi.mock('aws-amplify/auth', async (original) => ({
   ...(await original<typeof import('aws-amplify/auth')>()),
   fetchAuthSession: vi.fn(),
+  fetchUserAttributes: vi.fn(),
+  getCurrentUser: vi.fn(),
 }));
 vi.mock('./api', async (original) => ({
   ...(await original<typeof import('./api')>()),
@@ -94,6 +104,22 @@ describe('frontend configuration', () => {
       expect(parseFrontendConfig({ ...configValues, VITE_API_URL: url }).configured).toBe(false);
   });
 });
+describe('authentication delivery guidance', () => {
+  it('tells new users to check spam while explaining the shared sender limitation', () => {
+    render(
+      <MemoryRouter>
+        <AuthContext.Provider
+          value={{ status: 'anonymous', signOut: async () => {}, updateFirstName: async () => {} }}
+        >
+          <AuthPage config={parseFrontendConfig(configValues)} />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+    const deliveryNote = screen.getByRole('note').textContent ?? '';
+    expect(deliveryNote).toMatch(/check those folders/i);
+    expect(deliveryNote).toMatch(/shared sender/i);
+  });
+});
 describe('protected routing', () => {
   for (const status of ['loading', 'anonymous', 'authenticated'] as const)
     it(`handles ${status} session`, () => {
@@ -151,7 +177,51 @@ describe('account profile', () => {
     expect(profileFromAttributes({ email: 'maya@example.com' }).emailVerified).toBeUndefined();
   });
 
-  it('shows profile details, account actions, FAQs, and customer-care access', async () => {
+  it('can recover profile details from signed Cognito ID-token claims', () => {
+    expect(
+      profileFromClaims({
+        given_name: 'Maya',
+        family_name: 'Singh',
+        email: 'maya@example.com',
+        email_verified: true,
+      }),
+    ).toMatchObject({
+      firstName: 'Maya',
+      lastName: 'Singh',
+      email: 'maya@example.com',
+      emailVerified: true,
+    });
+  });
+
+  it('keeps profile details visible when Cognito GetUser attributes are unavailable', async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue({ userId: 'subject', username: 'maya' });
+    vi.mocked(fetchAuthSession).mockResolvedValue({
+      tokens: {
+        accessToken: {} as never,
+        idToken: {
+          payload: {
+            given_name: 'Maya',
+            email: 'maya@example.com',
+            email_verified: true,
+          },
+        } as never,
+      },
+    } as never);
+    vi.mocked(fetchUserAttributes).mockRejectedValue(new Error('GetUser unavailable'));
+
+    render(
+      <MemoryRouter>
+        <AuthProvider configured>
+          <Settings />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('maya@example.com')).toBeTruthy();
+    expect(await screen.findByText('Verified')).toBeTruthy();
+  });
+
+  it('shows profile details, safe account request actions, and FAQs', async () => {
     const updateFirstName = vi.fn().mockResolvedValue(undefined);
     render(
       <MemoryRouter>
@@ -171,13 +241,20 @@ describe('account profile', () => {
     expect(screen.getByText('asha@example.com')).toBeTruthy();
     expect(screen.getByText('Verified')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Request account deletion' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Contact customer care/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Prepare account deletion request' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Prepare support request' })).toBeTruthy();
     expect(screen.getByText('Frequently asked questions')).toBeTruthy();
     expect((screen.getByLabelText('First name') as HTMLInputElement).value).toBe('Asha');
-    expect(
-      screen.getByRole('link', { name: 'Request account deletion' }).getAttribute('href'),
-    ).toContain('Request+deletion+of+my+Waste2Watt+AI+account+and+data');
+    expect(screen.getByText(/A public support inbox is not configured/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare support request' }));
+    expect(await screen.findByLabelText('Request draft')).toBeTruthy();
+    expect((screen.getByLabelText('Request draft') as HTMLTextAreaElement).value).toContain(
+      'Waste2Watt AI support request',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare account deletion request' }));
+    expect((screen.getByLabelText('Request draft') as HTMLTextAreaElement).value).toContain(
+      'account and data deletion request',
+    );
     expect(screen.queryByText('private-subject-id')).toBeNull();
     fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Asha Devi' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
@@ -211,7 +288,7 @@ describe('important application states', () => {
     );
   }
 
-  function prepareUpload(api: ScanApi) {
+  function prepareUpload(api: ScanApi, options: { submit?: boolean; consent?: boolean } = {}) {
     vi.stubGlobal(
       'URL',
       class extends URL {
@@ -237,9 +314,12 @@ describe('important application states', () => {
     fireEvent.change(screen.getByLabelText('Approximate waste quantity'), {
       target: { value: '2.5' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
+    if (options.consent)
+      fireEvent.click(screen.getByRole('checkbox', { name: /Allow external AI analysis/ }));
+    if (options.submit !== false)
+      fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
   }
-  it('enables configured external processing by default without a per-scan checkbox', async () => {
+  it('keeps external processing disabled unless the user opts in', async () => {
     const api = stubApi();
     vi.mocked(uploadImage).mockResolvedValue();
     vi.mocked(api.get).mockResolvedValue({
@@ -277,8 +357,9 @@ describe('important application states', () => {
     expect(screen.getByText('Add a little context')).toBeTruthy();
     expect(screen.queryByText('Following your scan')).toBeNull();
     expect(
-      screen.getByText(/A compressed image may be processed by configured external AI providers/),
-    ).toBeTruthy();
+      (screen.getByRole('checkbox', { name: /Allow external AI analysis/ }) as HTMLInputElement)
+        .checked,
+    ).toBe(false);
     fireEvent.change(screen.getByLabelText('Approximate waste quantity'), {
       target: { value: '2.5' },
     });
@@ -288,11 +369,35 @@ describe('important application states', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(document.body.textContent).not.toMatch(/free-tier|zero.cost/i);
     expect(api.create).toHaveBeenCalledWith(
-      { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: true },
+      { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: false },
       expect.any(AbortSignal),
     );
     expect(api.get).toHaveBeenCalledTimes(1);
     expect(uploadImage).toHaveBeenCalledTimes(1);
+  });
+  it('sends external-processing consent only after the checkbox is selected', async () => {
+    const api = stubApi();
+    vi.mocked(uploadImage).mockResolvedValue();
+    vi.mocked(api.get).mockResolvedValue({
+      scanId: '10000000-0000-4000-8000-000000000001',
+      userId: '10000000-0000-4000-8000-000000000002',
+      status: 'FAILED',
+      quantityKg: 2.5,
+      unit: 'kg',
+      createdAt: '2026-10-08T00:00:00.000Z',
+      updatedAt: '2026-10-08T00:00:00.000Z',
+      failureCode: 'ANALYSIS_UNAVAILABLE',
+    });
+    prepareUpload(api, { submit: false });
+    const consent = screen.getByRole('checkbox', { name: /Allow external AI analysis/ });
+    expect((consent as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(consent);
+    fireEvent.click(screen.getByRole('button', { name: /Create scan/ }));
+    expect(await screen.findByRole('heading', { name: 'Scan record' })).toBeTruthy();
+    expect(api.create).toHaveBeenCalledWith(
+      { quantityKg: 2.5, unit: 'kg', externalProcessingConsent: true },
+      expect.any(AbortSignal),
+    );
   });
   it('retains a retryable scan when direct upload fails without starting polling', async () => {
     const api = stubApi();
