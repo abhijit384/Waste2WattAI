@@ -12,7 +12,7 @@ Waste2Watt AI helps teams create a traceable record of discarded material and ex
 2. **Create a scan.** Select a safe sample image, add a quantity/source, and show upload progress over HTTPS. Revisit the private history record. Where analysis is disabled or unavailable, point out the explicit status rather than a fabricated classification.
 3. **Open the Digital Waste Twin.** Explain the time and source summaries as descriptive aggregates of the signed-in user's loaded records. Source labels are not geospatially verified hotspots; energy and carbon remain unavailable without comparable cited evidence.
 4. **Open the scenario simulator.** Enter a value only from a cited source, its version/table, a bounded range and an energy basis. Show the arithmetic output with the `SIMULATED` label and limitations. The app does not claim the source was independently validated.
-5. **Open the sustainability advisor.** Show deterministic read-only prompts based on recent record counts and status. No live model is connected and no action is taken on the user's behalf.
+5. **Open the sustainability advisor.** Show deterministic, read-only prompts based on recent record counts and status. This page is not a live language-model chat and takes no action on the user's behalf.
 6. **Close on safety and next steps.** Images remain private and data is owner-scoped. The local five-class image baseline is a research experiment, not a production classifier. Bedrock access remains blocked; external-provider results have not been reliable across scans. No result or environmental benefit is invented.
 
 ## Evidence-led product claims
