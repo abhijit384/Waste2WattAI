@@ -2,36 +2,40 @@
 
 **Turning Waste Intelligence into Energy Decisions.**
 
-Waste2Watt AI is a private, AWS-hosted waste capture and evidence workflow. The live
-frontend is [Amplify hosted](https://main.d1kq8pn2nvv063.amplifyapp.com); the existing
-development backend uses Cognito, private S3, API Gateway, Lambda, DynamoDB, EventBridge,
-Step Functions, SQS and CloudWatch. Phase 4 authentication, owner-scoped history,
-constrained uploads and Android acceptance were completed and documented.
+Waste2Watt AI is an AWS-hosted waste capture and evidence workflow. The live frontend
+is [Amplify hosted](https://main.d1kq8pn2nvv063.amplifyapp.com); its backend uses
+Cognito, private S3, API Gateway, Lambda, DynamoDB, EventBridge, Step Functions, SQS
+and CloudWatch. Authentication, owner-scoped history, constrained uploads, and the
+user-confirmed Android acceptance checks are documented.
 
-The Phase 5 analysis workflow is deployed with `AI_INFERENCE_ENABLED=false`. Bedrock
-Nova Lite access remains externally blocked (`NOT_AUTHORIZED` / `Operation not allowed`),
-so the site deliberately reports analysis unavailable and does not invent results.
-External free-tier routing remains behind the backend's verified-provider and hard USD 0
-cost gates. The scan form discloses that eligible providers may process an image and
-submits the external-processing flag by default; paid inference remains disabled.
-See [the zero-cost provider policy](docs/AI_PROVIDER_FREE_ONLY.md).
-The current Dashboard and Digital Twin summarize authenticated records; the scenario
-calculator is a user-entered cited simulation, and the advisor uses deterministic
-read-only prompts. See the [final completion tracker](docs/FINAL_COMPLETION_TRACKER.md)
-for verified milestones, model evaluation, cost limits and remaining blockers.
+The analysis workflow supports Bedrock behind its AWS authorization gate and
+sequential external-provider adapters behind strict zero-cost checks. Bedrock remains
+unauthorized. Hosted provider results have been inconsistent: a validated Gemini
+response was observed once, while a later scan ended `ANALYSIS_UNAVAILABLE`. The
+application does not promise that every scan will receive a classification. Energy
+and carbon impact remain unestimated without reviewed conversion factors and a
+baseline. The scan page discloses external image processing. Paid external inference
+and unverified providers are blocked. See the [provider policy](docs/AI_PROVIDER_FREE_ONLY.md)
+and [completion tracker](docs/FINAL_COMPLETION_TRACKER.md).
 
-| Path              | Responsibility                                                              |
-| ----------------- | --------------------------------------------------------------------------- |
-| apps/web          | React/Vite/TypeScript/Tailwind application and Amplify Cognito UI           |
-| services/api      | Node TypeScript scan API, SDK v3 persistence/upload adapters, status worker |
-| services/analysis | Validated Python analysis boundary; live model inference remains disabled   |
-| services/agent    | Read-only owner-bound Strands-compatible tool modules; no model invocation  |
-| ml                | Local licensed dataset pipeline and CPU baseline training/evaluation        |
-| infra             | Five CDK v2 stacks and infrastructure assertions                            |
-| packages/shared   | Zod scan contracts and legacy AI contracts                                  |
-| data              | Data policy; no seeded factors                                              |
-| docs              | Architecture, API, deployment, phase reports and verification               |
-| tests             | Node and Python service tests; frontend tests live with web source          |
+Dashboard and Digital Twin values summarize authenticated scan records. The scenario
+calculator labels user-entered, cited-input arithmetic as simulated; the sustainability
+advisor is deterministic and read-only. Submission materials and the narrated demo
+are in [submission/](submission/README.md).
+
+| Path              | Responsibility                                                                 |
+| ----------------- | ------------------------------------------------------------------------------ |
+| apps/web          | React/Vite/TypeScript/Tailwind application and Amplify Cognito UI              |
+| services/api      | Node TypeScript scan API, SDK v3 persistence/upload adapters, status worker    |
+| services/analysis | Python analysis worker, schema validation, and guarded model-provider adapters |
+| services/agent    | Read-only owner-bound Strands-compatible tool modules; no model invocation     |
+| ml                | Local licensed dataset pipeline and CPU baseline training/evaluation           |
+| infra             | Five CDK v2 stacks and infrastructure assertions                               |
+| packages/shared   | Zod scan contracts and legacy AI contracts                                     |
+| data              | Data policy; no seeded factors                                                 |
+| docs              | Architecture, API, deployment, phase reports and verification                  |
+| submission        | Hackathon overview, architecture, limitations and narrated demo video          |
+| tests             | Node and Python service tests; frontend tests live with web source             |
 
 ## Local development
 

@@ -1,6 +1,6 @@
 # Waste2Watt AI completion tracker
 
-Updated: 2026-10-09 Asia/Kolkata
+Updated: 2026-10-11 Asia/Kolkata
 AWS account: `415150458314` · region: `us-east-1` · profile: `waste2watt-dev` · environment: `dev`
 
 ## Current gate
@@ -73,3 +73,11 @@ The failure queue showed approximately 26 visible, 0 delayed and 0 in-flight mes
 ## Latest unavailable-analysis investigation — 2026-10-09
 
 The ignored local `services/analysis/.env.local` contains all three provider keys and has the free-only, zero-cost, and owner-confirmation switches enabled; values were not read or printed. Those local settings do not configure Amplify's Lambda. The hosted Lambda reads provider keys only from its `EXTERNAL_AI_SECRET_ARN` Secrets Manager secret. The backend's sequential router can skip ineligible providers, fall through when requests or structured responses fail, and return the same `ANALYSIS_UNAVAILABLE` when no valid result remains. It intentionally suppresses provider exception details, so the scan status alone cannot identify which provider failed. A fresh read-only AWS check could not reach the configured AWS sign-in endpoint; no current Lambda configuration or CloudWatch logs were obtained and no model request was made. The new scan report UI explains this outcome without claiming provider attempts that cannot be verified.
+
+## Hackathon submission preparation — 2026-10-11
+
+The repository now includes a submission package with a reviewer overview, architecture/trust boundaries, paste-ready project-form copy, limitations, and the narrated 2:52 website walkthrough. The video demonstrates the home page, sign-in journey, dashboard, a fresh cardboard scan, report/history, Digital Twin, simulator, advisor, settings, and AWS architecture. That fresh upload ended `ANALYSIS_UNAVAILABLE`; the earlier stored report shown later in the video is a different scan. Credentials and verification codes are omitted.
+
+The top-level README, architecture description, and hackathon pitch were reconciled with the deployed Amplify site and current analysis limitations. On 2026-10-11, `npm run check` passed all 158 tests (36 TypeScript, 66 Python, 19 CDK, 37 frontend), typechecks, ESLint, Prettier, Ruff, and production builds. `npm run synth --workspace @waste2watt/infra` passed with context lookups disabled. No AWS account operation or deployment occurred. `.env.local` files remain ignored; the changed text scan found no AWS access-key/private-key/API-key patterns.
+
+The folder is review-ready, but the hackathon form is not complete until the project owner uploads the included MP4 as an unlisted YouTube video and enters that required URL. Hosted model analysis is inconsistent and Bedrock remains unauthorized; submission text and video call this out rather than claiming every scan succeeds.

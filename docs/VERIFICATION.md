@@ -1,5 +1,11 @@
 # Project verification ledger
 
+## 2026-10-11 hackathon submission preparation
+
+`npm run check` passed: 36 TypeScript, 66 Python, 19 CDK, and 37 frontend tests (158 total), plus workspace typechecks, ESLint, Prettier, Ruff, and production builds. The Vite bundle emitted two nonfatal upstream Zod annotation warnings. `npm run synth --workspace @waste2watt/infra` passed and used `--lookups false`; no AWS account operation or deployment occurred. The initial sandboxed run was blocked by Vite `EPERM` realpath resolution; the check was rerun outside the filesystem sandbox. One first full frontend run had a load-sensitive profile-test timeout; its isolated test, the whole frontend suite, and a subsequent full check passed.
+
+The submission materials and narrated 2:52 MP4 are in `submission/`. Secret-pattern scanning of changed text found no key/private-key patterns, and local `.env.local` files are ignored. The unlisted YouTube link remains for the owner to add after uploading the prepared video.
+
 Updated 2026-10-09. Historical Phase 6–8 and Phase 4 verification notes follow; the current production deployment and live provider results are recorded first. Phase 4 signup, email confirmation, authentication, mobile upload and history outcomes were user-confirmed in [final acceptance](PHASE4_FINAL_ACCEPTANCE.md).
 
 ## 2026-10-09 production deployment and live provider check
